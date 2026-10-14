@@ -1,0 +1,139 @@
+---
+title: "Inkfinite Document Model: Pages, Shapes, and Bindings"
+sidebarTitle: "Document Model"
+description: "Explore the layered structure of Inkfinite documents — pages, layers, shapes, and bindings — with stable IDs, metadata, and cross-platform persistence."
+---
+
+Every Inkfinite document is more than a snapshot of what you see on the canvas. It stores a complete tree of pages, layers, shapes, and bindings alongside the causal change history needed to merge edits from different peers. Understanding this structure helps you write reliable CLI queries, design agent integrations, and reason about what happens when you save, export, or sync a file.
+
+## Document Structure
+
+A document is organised as a strict hierarchy: a document contains pages, each page owns an ordered tree of layers and shapes, and bindings connect related shapes across that tree without changing their ownership.
+
+```
+Document
+└── Page (one or more)
+    ├── Layer (ordered)
+    │   └── Shape (ordered, nestable inside containers)
+    └── Binding (arrow ↔ source/target shape pair)
+```
+
+Every record in this hierarchy — pages, layers, shapes, bindings — carries a **stable ID** that never changes regardless of position in the tree, display name, or document replica. CLI commands and agent operations reference objects by ID so that an edit remains unambiguous even after the canvas has been reorganised.
+
+Pages separate canvases within a single document. The editor displays one selected page at a time, but the native file preserves every page and its full change history. Switching pages does not discard or reload data; it is a view change within the same in-memory document.
+
+## Shapes and Layers
+
+Shapes are the atomic drawable units on the canvas. Inkfinite supports the following kinds:
+
+<CardGroup cols={2}>
+  <Card title="Geometry" icon="shapes">
+    Rectangles, ellipses, lines, and arrows — the basic vector primitives used for diagrams and wireframes.
+  </Card>
+  <Card title="Text & Markdown" icon="text">
+    Plain text blocks and Markdown blocks, each storing a CSS font family string for rendering consistency.
+  </Card>
+  <Card title="Freehand Strokes" icon="pencil">
+    Pressure-sensitive brush paths captured during drawing, stored as ordered point sequences.
+  </Card>
+  <Card title="Containers (Frames)" icon="square-dashed">
+    Container shapes own ordered child shapes. Moving or exporting a frame carries all children as a single composition.
+  </Card>
+</CardGroup>
+
+Each shape carries:
+
+- **Kind** — the discriminated type that determines which properties are valid.
+- **Transform** — position, size, and rotation in the page coordinate space.
+- **Kind-specific properties** — fill, stroke, font, point sequences, and so on.
+- **Metadata** — name, role, description, tags, source, link, and a custom metadata map for selection controls and reliable CLI queries.
+- **Provenance** — read-only actor, origin, timestamp, and source fields set when the shape is created.
+
+Layers control stacking order and visibility. A layer is never a shape, but it owns the root-level shapes on a page. Container shapes own their own ordered child shapes — containers can nest, making the full shape tree a forest rooted at the layer level.
+
+Bindings connect arrows to source and target shapes without making either shape a child of the other. A binding record stores source and target shape IDs and an optional `relation_type` alongside them.
+
+### Locks and Agent Metadata
+
+Two orthogonal controls restrict modifications to shapes and layers:
+
+<Tabs>
+  <Tab title="Locks">
+    Setting a lock on a layer or shape prevents edits from any transaction, regardless of who the actor is or which integration submitted the change. The document engine enforces locks before applying operations — a transaction that touches a locked record is rejected in full.
+  </Tab>
+  <Tab title="agent_editable">
+    The `agent_editable` flag in a shape's metadata is available to permissioned integrations as a signal that a shape is intended for programmatic modification. The document engine and direct CLI do **not** treat it as a lock — it carries no engine-level enforcement and is purely advisory for caller policy.
+  </Tab>
+</Tabs>
+
+## Cards
+
+A **card** is a container shape that presents its text and Markdown children as a structured, editable card surface. The container's semantic metadata carries the card fields:
+
+| Field | Description |
+|---|---|
+| `title` | Stored as the text child shape's content |
+| `body` | Stored as the Markdown child shape's content |
+| `role` | Semantic classification (e.g. note, decision, task) |
+| `tags` | Comma-separated or array of label strings |
+| `source` | URL or reference to origin material |
+| `link` | Navigation target |
+| Custom metadata | Arbitrary key-value map for integrations and queries |
+
+Card titles and bodies use the font families on their text and Markdown child shapes. Changing a card's font modifies those child shapes directly, so no document format migration is required.
+
+<Note>
+  A headless renderer (such as a CI export pipeline) must supply the requested CSS font family as a font asset or accept a fallback warning when the family is unavailable.
+</Note>
+
+## Persistence
+
+Inkfinite stores documents differently depending on the platform, but the in-memory document model is identical in both cases.
+
+<Tabs>
+  <Tab title="Web">
+    The web editor stores documents in the browser's **IndexedDB** database. The document is loaded from IndexedDB on open and written back on every accepted transaction.
+
+    <Warning>
+      Clearing site data, using private browsing, or switching browser profiles can make IndexedDB documents unavailable. Export important work to a `.inkfinite` file using **File → Export** to create a portable backup.
+    </Warning>
+  </Tab>
+  <Tab title="Desktop & CLI">
+    The desktop editor and the `inkfinite` CLI use canonical **`.inkfinite` files**. Each file contains the full Automerge binary state and change history — not just the visible canvas snapshot.
+
+    Writers apply an advisory sidecar lock, then perform an atomic file replacement: the new content is written to a temporary file in the same directory, flushed and synced, and then moved over the canonical path. An interrupted replacement leaves recovery data that can be validated and promoted as a new canonical baseline.
+  </Tab>
+</Tabs>
+
+## The DocumentSnapshot Contract
+
+The materialized snapshot embedded in every `.inkfinite` file is described by the `DocumentSnapshot` struct. This is the stable interface between the Automerge history layer and the canvas data model:
+
+```rust
+pub struct DocumentSnapshot {
+    pub format: FormatId,
+    pub format_version: u32,
+    pub document_id: DocumentId,
+    pub heads: Vec<ChangeHash>,
+    pub document: Document,
+}
+```
+
+The `format` field is always `"inkfinite.document"`. The `format_version` is currently `2`. The `heads` vector carries the Automerge causal hashes that identify the exact point in history this snapshot represents — these same hashes appear in CLI `inspect` and `query` output and are used as transaction preconditions.
+
+The `document` field contains normalized pages, layers, shapes, bindings, and assets. IDs are stable across saves and replicas. `format_version` and protocol version fields are explicit so future releases can reject unsupported data safely without guessing at compatibility.
+
+<Tip>
+  The CLI can print a deterministic JSON projection of the document for inspection and CI pipelines. That projection is a read-only view — it cannot replace the Automerge history or causal heads stored in the canonical file.
+</Tip>
+
+---
+
+<CardGroup cols={2}>
+  <Card title="Transactions & Sync" icon="arrows-rotate" href="/concepts/transactions-and-sync">
+    Learn how Inkfinite validates edits, records history, and merges peer changes using Automerge causal heads.
+  </Card>
+  <Card title="File Format" icon="file-code" href="/reference/file-format">
+    Full reference for the native `.inkfinite` format, editable interchange (Excalidraw, Obsidian Canvas), and safe-write behaviour.
+  </Card>
+</CardGroup>

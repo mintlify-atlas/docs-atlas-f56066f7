@@ -1,0 +1,91 @@
+---
+title: "Using Inkfinite in the Browser: Storage and Setup"
+sidebarTitle: "Web"
+description: "Run the full Inkfinite canvas in any browser, understand how boards are kept in IndexedDB per origin, and launch a self-hosted build with pnpm."
+---
+
+The web editor gives you the complete Inkfinite canvas — shapes, freehand strokes, native vector paths, connectors, groups, pages, and layers — without requiring a desktop install. It loads the Rust document engine through WebAssembly, so the same logic that powers the desktop app runs entirely in your browser tab. No sign-in is required to use the hosted editor, and no data is sent to a server.
+
+## Opening the editor
+
+The hosted editor lives at `/app`. Navigate to that route, and the canvas opens immediately. The first time you visit, a blank board is created in your browser's storage. Subsequent visits restore your most recent board automatically.
+
+<CardGroup cols={2}>
+  <Card title="Editor Guide" icon="pen-nib" href="/guide/editor">
+    Learn canvas tools, gestures, selection modes, and styling options.
+  </Card>
+  <Card title="Building from Source" icon="code" href="/development/building-from-source">
+    Run your own build of the web editor and documentation site.
+  </Card>
+</CardGroup>
+
+## Storage and backups
+
+The web editor stores all boards in **IndexedDB** for the current browser origin and profile. Each origin — including `localhost` ports during development — maintains its own isolated database. Boards created on `https://inkfinite.app` are not accessible from a local dev server, and vice versa.
+
+Because boards live only in your browser, a few situations can cause permanent data loss:
+
+<Warning>
+  Clearing site data, removing a browser profile, or working in a private browsing window will permanently delete all boards stored in IndexedDB for that origin. There is no recovery path once browser storage is erased. **Export any work you cannot afford to lose** before clearing data or closing a private window.
+</Warning>
+
+To protect important work, export it in a durable format before relying on browser storage as a long-term home:
+
+- **Excalidraw and Obsidian Canvas** exports preserve supported editable content, but may omit features the target format cannot represent.
+- **Mermaid and D2 files** can be imported back into Inkfinite as editable cards, frames, and arrows.
+- **PNG and SVG** exports are presentation copies — they cannot be re-imported as editable Inkfinite documents.
+
+<Tip>
+  When you need a canonical file you can copy, version, or edit from the CLI, use the desktop app instead. The desktop app writes Automerge-backed `.inkfinite` files to your local filesystem.
+</Tip>
+
+See [File Format](/reference/file-format) for a full description of what each export format preserves and omits before treating an export as a backup.
+
+## Running a self-hosted build
+
+You can run the web editor and documentation site from a source checkout. This is useful for evaluating unreleased features, contributing changes, or hosting the editor on your own origin.
+
+### Prerequisites
+
+<Steps>
+  <Step title="Install the JavaScript toolchain">
+    You need **Node.js 18 or newer** and **pnpm**. From the repository root, install all JavaScript packages:
+
+    ```sh
+    pnpm install
+    ```
+  </Step>
+  <Step title="Build the WebAssembly engine">
+    Add the WebAssembly compilation target to your Rust toolchain, then install the exact `wasm-bindgen` CLI version recorded in `Cargo.lock`:
+
+    ```sh
+    rustup target add wasm32-unknown-unknown
+    cargo install wasm-bindgen-cli --version 0.2.126 --locked
+    pnpm wasm:build
+    ```
+  </Step>
+  <Step title="Start the development server">
+    Launch the documentation site and web editor together:
+
+    ```sh
+    pnpm dev:web
+    ```
+
+    The terminal prints a local URL. Open that URL for the documentation site, or append `/app` to go directly to the canvas editor. The server watches for source changes and reloads automatically.
+  </Step>
+</Steps>
+
+<Info>
+  The development server and the hosted editor at `/app` each create their own IndexedDB database scoped to their respective origin (typically `http://localhost:<port>`). Boards you create during local development are separate from any boards stored on the production origin.
+</Info>
+
+## Related pages
+
+<CardGroup cols={2}>
+  <Card title="Boards and Files" icon="folder-open" href="/guide/boards-and-files">
+    Manage board lifecycle, naming, pages, and layers inside the editor.
+  </Card>
+  <Card title="Import and Export" icon="arrow-right-arrow-left" href="/guide/import-and-export">
+    Bring in SVG, Excalidraw, and Obsidian Canvas content; export to multiple formats.
+  </Card>
+</CardGroup>

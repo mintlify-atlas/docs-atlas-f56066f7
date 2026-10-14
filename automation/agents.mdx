@@ -1,0 +1,168 @@
+---
+title: "Agent Workflows: CLI and MCP Access to Inkfinite Documents"
+sidebarTitle: "Agent Workflows"
+description: "How agents use the inkfinite CLI and MCP server to inspect, validate, and apply changes to Inkfinite documents with lock and permission enforcement."
+---
+
+Inkfinite exposes a stable, machine-readable interface specifically designed for automated workflows. Agents interact with documents through the `inkfinite` CLI for direct file and live-session access, or through the `inkfinite-mcp` server when operations require authorization or human review. Both surfaces output structured JSON errors with discrete exit codes, making it straightforward to detect and handle failures without parsing prose.
+
+## Workflow
+
+For every change to a saved file, follow this six-step sequence without skipping steps:
+
+<Steps>
+  <Step title="Inspect">
+    Run `inspect --summary --json` and keep the returned heads. Document heads are preconditions for every subsequent mutation.
+
+    ```sh
+    inkfinite inspect board.inkfinite --summary --json
+    ```
+  </Step>
+  <Step title="Query">
+    Use `query --detail --limit N --json` to read only the relevant records. Prefer semantic roles, names, and tags over coordinates when they identify one record. If a selector matches multiple shapes, narrow it with an exact ID — do not guess which one the human meant.
+
+    ```sh
+    inkfinite query board.inkfinite \
+      --role architecture.service --detail --limit 20 --json
+    ```
+  </Step>
+  <Step title="Build">
+    Build the smallest transaction that satisfies the request. Prefer `shape create`, `shape patch`, `shape delete`, `connect`, and `layout` when one of them expresses the edit. Use `apply` only for transactions those structured commands cannot express.
+  </Step>
+  <Step title="Dry Run">
+    Run the mutation with `--dry-run --json`. Do not proceed if the dry run fails.
+
+    ```sh
+    inkfinite shape patch board.inkfinite \
+      --role architecture.service \
+      --patch '@service-patch.json' \
+      --dry-run --json
+    ```
+  </Step>
+  <Step title="Apply">
+    Apply the mutation only after the dry run passes.
+
+    ```sh
+    inkfinite shape patch board.inkfinite \
+      --role architecture.service \
+      --patch '@service-patch.json' --json
+    ```
+  </Step>
+  <Step title="Validate and Render">
+    Validate the document and render the affected page, role, or selection to confirm the result.
+
+    ```sh
+    inkfinite validate board.inkfinite --json
+    inkfinite render board.inkfinite --output board.svg
+    ```
+  </Step>
+</Steps>
+
+## Live Documents
+
+For a document open in the desktop app, add `--app` to a structured `shape`, `connect`, or `layout` command instead of modifying its file on disk. Validated live edits commit immediately and enforce current heads, record versions, and document locks.
+
+```sh
+inkfinite shape patch --app \
+  --role architecture.service \
+  --patch '@service-patch.json' --json
+```
+
+Use the permissioned MCP interface when model-controlled changes require authorization or human review before they take effect in the open session.
+
+## Permissions
+
+Shape and layer locks apply to every CLI transaction. Do not work around a lock by editing a child record or bypassing the CLI. The direct CLI does not enforce `agent_editable` or hide records in invisible layers — permissioned integrations use that metadata as part of their own policy.
+
+### MCP Access
+
+The `inkfinite-mcp` server provides a policy-controlled interface to documents and live desktop sessions. Install it from crates.io or from a prebuilt release archive:
+
+<CodeGroup>
+
+```sh cargo install
+cargo install inkfinite-mcp --locked --bin inkfinite-mcp
+```
+
+```sh GitHub Releases
+# Download the archive from:
+# https://github.com/stormlightlabs/inkfinite/releases
+# Verify against SHA256SUMS, extract, and put bin/inkfinite-mcp on the
+# path used by your MCP client.
+```
+
+</CodeGroup>
+
+Run `inkfinite-mcp` as a local stdio server. It discovers open desktop sessions through authenticated local IPC. Pass standalone files as command arguments, or list them in the `INKFINITE_MCP_DOCUMENTS` environment variable using the platform path separator:
+
+```sh
+inkfinite-mcp board.inkfinite research.inkfinite
+```
+
+#### MCP Tools
+
+The server exposes the following tools:
+
+<AccordionGroup>
+  <Accordion title="inkfinite_capabilities">
+    Lists all supported commands, tools, and their stable exit codes. Always start here to discover what the server exposes before issuing any other tool call.
+  </Accordion>
+  <Accordion title="dry_run">
+    Previews a mutation without applying it. Use `dry_run: true` before every direct mutation to confirm the operation will succeed given the current document state.
+  </Accordion>
+  <Accordion title="inkfinite_propose">
+    Sends a validated transaction to an open desktop session as a proposal. The human operator reviews and approves or rejects the proposal inside the app. Standalone files do not have a review store and cannot receive proposals.
+  </Accordion>
+  <Accordion title="inkfinite_proposal_status">
+    Reports the review outcome of a previously submitted proposal — approved, rejected, or pending.
+  </Accordion>
+</AccordionGroup>
+
+Select a source and inspect its current heads before issuing any mutation. Use `dry_run: true` before a direct mutation. `inkfinite_propose` sends a validated transaction to an open desktop session; `inkfinite_proposal_status` reports the review outcome.
+
+#### Policy Configuration
+
+The server defaults to read-only access. Set `INKFINITE_MCP_POLICY` to a JSON policy string when the model needs write access. The default rule and per-session rules use `read`, `create`, `modify`, `delete`, `layout`, and `propose` scopes. Per-document rules are keyed by canonical path; per-session rules are keyed by desktop session ID.
+
+```json
+{
+  "default": {
+    "permissions": {
+      "read": true,
+      "create": true,
+      "modify": true,
+      "delete": false,
+      "layout": true,
+      "propose": true
+    },
+    "hidden_layers": "deny",
+    "require_agent_editable": true
+  }
+}
+```
+
+<Tip>
+Set `hidden_layers` to `"allow"` only when the agent has an explicit reason to read or modify content the human has hidden. Leave `require_agent_editable` as `true` in production policies so that agents only touch shapes the document author has explicitly opted in to automated editing.
+</Tip>
+
+MCP filters hidden layers unless `hidden_layers` is `"allow"`, and changes to existing shapes require `agent_editable: true` by default. The `inkfinite-core` engine still checks document, layer, shape, and ancestor locks regardless of policy. Policy failures use the `authorization_denied` error code; lock and validation failures retain their document error codes.
+
+<Warning>
+A denied MCP operation is **not** permission to switch to the direct CLI and bypass the policy. If the MCP server denies an operation, surface that denial to the user rather than rerouting through a less-restricted interface.
+</Warning>
+
+Raw `app apply` validates and commits a prepared transaction directly, without the proposal review flow.
+
+## Conflicts
+
+Document heads are preconditions. If a file mutation exits with code `5`, do not remove lock files, copy an older document over the current file, or silently drop intervening edits. Instead:
+
+1. Inspect the current heads.
+2. Query the affected records again.
+3. Rebuild the transaction from that fresh state.
+
+Record-version preconditions protect individual objects in the same way. A failed version check means the object changed after the agent last inspected it — re-query and rebuild before retrying.
+
+## Agent Skill
+
+The repository includes an installable agent skill at `.agents/skills/inkfinite`. It covers CLI, MCP, and reviewed desktop workflows, and points agents to generated help text and tool schemas so they can stay in sync with the installed version.

@@ -1,0 +1,206 @@
+---
+title: "Inkfinite CLI: Inspect, Edit, and Render Documents"
+sidebarTitle: "CLI"
+description: "Use the inkfinite CLI to inspect, query, edit, validate, and render documents from any terminal — in file mode or against a live desktop session."
+---
+
+The `inkfinite` binary is the primary automation interface for Inkfinite documents. It operates in two modes: **file mode**, where it works directly on a closed `.inkfinite` file, and **live mode**, where it connects to a running desktop session over authenticated local IPC. Every command outputs machine-readable JSON when you pass `--json`, making it straightforward to integrate with scripts, CI pipelines, and agent workflows.
+
+## Command Overview
+
+Run `inkfinite --help` or `inkfinite <command> --help` for the full option reference. The main commands are:
+
+| Command | Purpose |
+| --- | --- |
+| `new` | Create a blank canonical document |
+| `inspect` | Print a document summary or materialized snapshot |
+| `query` | Find records by semantic, structural, kind, or bounds filters |
+| `validate` | Load and validate a canonical document |
+| `shape`, `connect`, `layout` | Build a structured file or live desktop edit |
+| `apply` | Validate and apply a transaction draft from JSON |
+| `import svg` | Import static SVG content into native shapes |
+| `render` | Write an SVG or PNG of a document or filtered view |
+| `app` | Inspect or work with a running desktop session |
+| `completions` | Print a Bash, Fish, or Zsh completion script |
+| `schema`, `capabilities` | Print machine-readable contracts for integrations |
+
+During development, build the binary directly from source with:
+
+```sh
+cargo build -p inkfinite-cli --bin inkfinite
+```
+
+## Install the CLI
+
+There are three ways to get the `inkfinite` binary: downloading a prebuilt release archive, installing via `cargo`, or building the distribution archives yourself from a source checkout.
+
+<CodeGroup>
+
+```sh GitHub Releases
+# Download the archive for your OS and architecture from:
+# https://github.com/stormlightlabs/inkfinite/releases
+# Verify against the release's SHA256SUMS file before extraction.
+# The archive contains the binary, man page, and Bash/Fish/Zsh completions.
+```
+
+```sh cargo install
+cargo install inkfinite-cli --locked --bin inkfinite
+```
+
+```sh Build from source
+cargo xtask man
+cargo xtask completions
+cargo xtask dist
+```
+
+</CodeGroup>
+
+<Info>
+`cargo xtask man` writes to `target/man/inkfinite.1` and `cargo xtask completions` writes to `target/completions/`. The `dist` command produces target-named CLI and MCP archives plus a `SHA256SUMS` file in `dist/`.
+</Info>
+
+After extracting the CLI archive on a Unix system, install its files with:
+
+```sh
+sudo mkdir -p /usr/local/bin /usr/local/share/man/man1 \
+  /usr/local/share/bash-completion/completions \
+  /usr/local/share/fish/vendor_completions.d \
+  /usr/local/share/zsh/site-functions
+
+sudo install -m 755 bin/inkfinite /usr/local/bin/inkfinite
+sudo install -m 644 share/man/man1/inkfinite.1 /usr/local/share/man/man1/inkfinite.1
+sudo install -m 644 share/bash-completion/completions/inkfinite \
+  /usr/local/share/bash-completion/completions/inkfinite
+sudo install -m 644 share/fish/vendor_completions.d/inkfinite.fish \
+  /usr/local/share/fish/vendor_completions.d/inkfinite.fish
+sudo install -m 644 share/zsh/site-functions/_inkfinite \
+  /usr/local/share/zsh/site-functions/_inkfinite
+```
+
+## Shell Completions
+
+The CLI ships completion scripts for Bash, Fish, and Zsh. If you installed from a release archive, the scripts are already placed in the correct system directories by the install commands above. To print a script directly — for example to source it in a dotfile or install it to a custom path — use the `completions` command (`comp` is an accepted alias):
+
+<Tabs>
+  <Tab title="Bash">
+    ```sh
+    inkfinite completions bash
+    ```
+  </Tab>
+  <Tab title="Fish">
+    ```sh
+    inkfinite completions fish
+    ```
+  </Tab>
+  <Tab title="Zsh">
+    ```sh
+    inkfinite completions zsh
+    ```
+  </Tab>
+</Tabs>
+
+## File Mode
+
+File-mode commands operate on a closed `.inkfinite` file on disk. Close the desktop editor before changing a file it currently has open — a lock or stale-head error is a signal to inspect current state, not a reason to overwrite the file.
+
+### Inspecting and Querying
+
+Start every workflow by inspecting the document heads and querying only the records you actually need:
+
+```sh
+inkfinite inspect architecture.inkfinite --summary --json
+inkfinite query architecture.inkfinite \
+  --role architecture.service --detail --limit 20 --json
+```
+
+### Dry-Run Mutations
+
+Prefer `shape create`, `shape patch`, `shape delete`, `connect`, and `layout` when one of them expresses the edit. Use `apply` for a transaction with operations those structured commands do not cover. Always test mutations with `--dry-run` before saving:
+
+```sh
+inkfinite shape patch architecture.inkfinite \
+  --role architecture.service \
+  --patch '@service-patch.json' \
+  --dry-run --json
+
+inkfinite apply architecture.inkfinite \
+  --transaction transaction.json \
+  --dry-run --json
+
+inkfinite import svg architecture.inkfinite \
+  --input icon.svg --dry-run --json
+```
+
+### Shape, Connect, and Layout
+
+`layout` supports `align`, `distribute`, `stack`, `grid`, `tidy`, and `graph`. Select shapes with repeated `--shape` flags or one `--role` selector. The sub-commands accept these options:
+
+- **stack** — `--axis`, `--gap`
+- **grid** — `--columns`, `--column-gap`, `--row-gap`
+- **tidy** — `--gap`
+- **graph** — `--algorithm flow|tree|radial`, `--direction top-to-bottom|left-to-right`, `--node-gap`, `--rank-gap`
+
+Graph edges come from selected-to-selected relation bindings or the two endpoints of a selected connector. Proximity and unselected endpoints are ignored.
+
+Use `connect --kind relation --relation-type TYPE` for a semantic connection that does not participate in arrow routing, then query it by direction or type:
+
+```sh
+inkfinite connect architecture.inkfinite \
+  --source shape:service --target shape:database \
+  --kind relation --relation-type depends_on --json
+inkfinite query architecture.inkfinite \
+  --outgoing-from shape:service --relation-type depends_on --detail --json
+```
+
+Run `shape kinds` or `shape describe KIND` to discover shape contracts.
+
+### Apply and Transaction Output
+
+To hand a validated transaction to another process without changing the document, add `--transaction-out transaction.json` to any structured mutation. The CLI validates the transaction and refuses to overwrite an existing output file.
+
+`import svg` creates the retained source asset, native group containers, and supported shapes in one validated transaction. Use `--page` or `--layer` to choose a target; otherwise the first page and layer receive the import.
+
+## Live Mode
+
+With the desktop app running, `app status`, `app context`, `app inspect`, and `app query` provide read-only access. `app context` reports the active page, selection, viewport, actor, and current heads. Add `--app` to a structured mutation command to apply the edit directly to the open document:
+
+```sh
+inkfinite app status --json
+inkfinite app context --json
+inkfinite app query --role architecture.service --detail --limit 20 --json
+inkfinite shape patch --app --role architecture.service \
+  --patch '@service-patch.json' --json
+inkfinite app apply --transaction transaction.json --json
+```
+
+<Note>
+Structured `--app` mutations and `app apply` validate and commit immediately. They enforce current heads, record versions, transaction validation, and document locks. For reviewed, permissioned model access, use the MCP interface rather than the general CLI.
+</Note>
+
+## Rendering
+
+The output file extension selects the format — `.svg` or `.png`. The same options work for a closed file and a live desktop session:
+
+```sh
+inkfinite render architecture.inkfinite --output architecture.svg
+inkfinite render architecture.inkfinite --output architecture.png
+inkfinite app render --output current.png
+```
+
+Use `--region x,y,width,height` for an exact world-space crop. In live mode, `--transaction` and `--proposed-output` let you preview a proposed result without changing the open document.
+
+## Output Format
+
+Pass `--json` to any command for deterministic, machine-readable output. Successful mutations report the previous and current heads, transaction ID, created/updated/deleted records, repairs, and warnings. Failures are written to standard error as JSON with `code`, `message`, `details`, `retryable`, and `suggestion` fields — so agents can respond programmatically without parsing prose.
+
+`capabilities --json` reports supported commands and stable exit codes. Use `schema document`, `schema transaction`, and `schema protocol` instead of inferring JSON shapes from examples. The global `--json` and `--non-interactive` flags may appear before or after any subcommand.
+
+### Exit Codes
+
+| Code | Meaning |
+| ---: | --- |
+| `0` | Success |
+| `2` | Invalid command usage |
+| `3` | File or input error |
+| `4` | Invalid document or data |
+| `5` | Existing file, lock, or state conflict |

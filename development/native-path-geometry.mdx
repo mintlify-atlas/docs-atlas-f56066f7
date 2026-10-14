@@ -1,0 +1,138 @@
+---
+title: "Native Path Geometry: Subpaths, Segments, and Validation"
+sidebarTitle: "Path Geometry"
+description: "The Inkfinite path representation: subpath and segment structure, fill rules, Rust validation, freehand shapes, and exported TypeScript bindings."
+---
+
+Inkfinite stores arbitrary vector geometry as native `path` shapes. SVG import and vector editing use this representation instead of keeping an SVG-specific document model. The path format is serialized through Rust, validated at every transaction boundary, and exposed to TypeScript through generated bindings.
+
+## Representation
+
+A path shape has `kind: "path"`. Its kind-specific properties store `subpaths` and `fill_rule`. The following example shows a single closed subpath using all four segment types:
+
+```json
+{
+  "subpaths": [
+    {
+      "segments": [
+        { "type": "move", "to": { "x": 0, "y": 0 } },
+        { "type": "line", "to": { "x": 40, "y": 0 } },
+        {
+          "type": "quadratic",
+          "control": { "x": 50, "y": 10 },
+          "to": { "x": 40, "y": 20 }
+        },
+        {
+          "type": "cubic",
+          "control_1": { "x": 40, "y": 30 },
+          "control_2": { "x": 0, "y": 30 },
+          "to": { "x": 0, "y": 20 }
+        }
+      ],
+      "closed": true
+    }
+  ],
+  "fill_rule": "nonzero"
+}
+```
+
+Coordinates belong to the path's local coordinate system. The shape transform places that local geometry relative to its layer or parent container. Painting properties can live alongside the geometry in the shape's properties.
+
+## Segments and subpaths
+
+Every subpath has at least one segment and starts with exactly one `move` segment. The `move` gives the subpath its starting point. Later segments continue from the previous destination:
+
+| Segment type | Fields                                                      |
+| ------------ | ----------------------------------------------------------- |
+| `move`       | `to` — destination point                                    |
+| `line`       | `to` — destination point                                    |
+| `quadratic`  | `control` — one control point; `to` — destination          |
+| `cubic`      | `control_1`, `control_2` — two control points; `to` — destination |
+
+A `closed` subpath connects its final destination back to its initial move point. Closure is a property of the subpath, not a separate segment. Separate subpaths represent compound geometry but do not use additional move segments inside one subpath.
+
+## Compound fills
+
+`fill_rule` is either `nonzero` or `evenodd`, matching the SVG fill-rule values. The rule applies to all subpaths in the path when a renderer determines which regions are inside the compound path.
+
+## Validation
+
+Rust validates path properties before they enter a shape record. The following conditions are rejected:
+
+- Empty paths (no subpaths)
+- Empty subpaths (no segments)
+- Subpaths without an initial `move` segment
+- Later `move` segments within an existing subpath
+- Non-finite coordinates (infinity, NaN)
+
+`validate_shape_properties` applies this check whenever the shape kind is `path`. Create and patch operations reserialize valid path geometry through the Rust representation before committing it. A rejected path does not partially modify the document.
+
+## Freehand shapes
+
+Freehand shapes keep their input points and brush settings as properties. Rust validates those properties at the same transaction boundary, writes their canonical field representation, and computes the committed outline for bounds and invalidated regions. TypeScript can use `perfect-freehand` for pointer previews and hit testing, but it does not decide whether a stroke enters the document.
+
+## Exported bindings
+
+The binding generator exports the following types to `@inkfinite/bindings`:
+
+| Binding             | Description                                              |
+| ------------------- | -------------------------------------------------------- |
+| `PathFillRule`      | `"nonzero"` or `"evenodd"` discriminated union           |
+| `PathSegment`       | Discriminated union of move, line, quadratic, and cubic  |
+| `PathSubpath`       | `segments` array and `closed` boolean                    |
+| `PathGeometry`      | `subpaths` array and `fill_rule`                         |
+| `validatePathGeometry` | Applies the same structural checks as the Rust validator |
+
+## Editing ownership
+
+`inkfinite-core` owns deterministic operations that produce committed path geometry or hierarchy changes. These include:
+
+- Splitting curves to add anchors
+- Deleting anchors
+- Converting segment types
+- Opening and closing subpaths
+- Joining endpoints from separate open subpaths
+- Computing parent-relative transforms when reparenting a shape without changing its world-space appearance
+
+These operations are exposed to interactive clients through generated bindings and WASM. CLI, MCP, desktop, and web edits therefore use the same implementations rather than replacing complete paths with geometry constructed independently by each interface.
+
+TypeScript owns direct-selection tool state, selected anchors and handles, pointer interpretation, overlays, and frame-by-frame gesture previews. A preview may mirror a Rust calculation to avoid a round trip during pointer movement, but it does not define committed geometry.
+
+### Direct selection keyboard shortcuts
+
+| Key | Action |
+| --- | ------ |
+| Alt-click on segment | Add an anchor |
+| Delete | Remove selected anchors |
+| Q | Convert incoming segment to quadratic |
+| C | Convert incoming segment to cubic |
+| L | Convert incoming segment to line |
+| O | Open selected subpath |
+| Z | Close selected subpath |
+| B | Break selected cubic handles |
+| J | Join two selected endpoints or cubic handles |
+
+A completed gesture submits one operation in one transaction through the Rust document session. Rust applies the operation, validates the resulting path and hierarchy, computes committed bounds and invalidated regions, and returns the updated editor projection. One completed gesture produces one undo step.
+
+## Geometry and rendering
+
+Path bounds use segment endpoints and the interior extrema of quadratic and cubic Bézier curves. A closed subpath contributes its implicit closing line. Shape transforms compose from the path to its parent and through the containing hierarchy.
+
+The Canvas renderer draws move, line, quadratic, and cubic segments and applies the stored compound fill rule. Fill hit testing uses the same rule. Stroke hit testing follows the flattened curve segments with the stored stroke width and selection tolerance. Headless SVG output serializes normalized commands with fixed numeric formatting, fill rules, painting properties, and composed transforms.
+
+Rust and TypeScript consume shared valid and invalid path fixtures. The fixtures cover curve bounds, compound geometry, nested transforms, and validation errors for malformed paths.
+
+## Path metrics
+
+`inkfinite-core` measures paths with adaptive Bézier flattening. A geometric tolerance controls maximum flattening error — it does not select a fixed sample count. The metrics service provides:
+
+- Path length
+- Point and tangent queries by distance
+- Nearest-point queries with source segment locations
+- Trimming that keeps line, quadratic, and cubic commands
+
+The browser editor mirrors these operations in `packages/core/src/path-metrics.ts` for pointer interaction. It transforms path control points before measuring them, so hit testing uses world geometry under rotation and non-uniform scale. Native paths and resolved arrows use the same nearest-point service instead of separate curve sample counts.
+
+<Info>
+  See [SVG import](/development/svg-import) for how SVG path data is normalized into this representation, and [Architecture](/development/architecture) for how editing operations flow from TypeScript through the Rust transaction engine.
+</Info>

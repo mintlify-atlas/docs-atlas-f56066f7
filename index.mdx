@@ -1,20 +1,70 @@
 ---
-title: "Introduction"
-description: "Welcome to your project"
+title: "Inkfinite: Local-First Infinite Canvas"
+sidebarTitle: "Home"
+description: "Inkfinite is a local-first infinite canvas for drawing, wireframing, and diagramming. Runs in your browser or as a desktop app, with a CLI and MCP server for agent workflows."
 ---
 
-Write a short description of your product here. What it does, who it's for, and what they can accomplish with it.
+Inkfinite is a local-first infinite canvas that runs in your browser and as a native desktop app. Draw diagrams, wireframes, and sketches using a shared document model backed by Automerge — every edit is validated, history is preserved, and files can be inspected, scripted, and rendered from the command line.
 
-<Tip>
-  Ready to make this your own? Start by editing this page. Update your `docs.json` file to customize your site. Then fill out the [Quickstart](/quickstart) page.
-</Tip>
+<CardGroup cols={2}>
+  <Card title="Introduction" icon="circle-info" href="/introduction">
+    Learn what Inkfinite is, where documents live, and which guide to read next.
+  </Card>
+  <Card title="Quickstart" icon="rocket" href="/quickstart">
+    Create, connect, arrange, and save your first Inkfinite board in minutes.
+  </Card>
+  <Card title="Editor Guide" icon="pen-to-square" href="/guide/editor">
+    Navigate the canvas, use drawing tools, and change the appearance of objects.
+  </Card>
+  <Card title="CLI Reference" icon="terminal" href="/automation/cli">
+    Inspect, query, edit, validate, and render documents from the command line.
+  </Card>
+</CardGroup>
 
-<Card title="Quickstart" icon="rocket" href="/quickstart">
-  This card links to the quickstart page in your project.
-</Card>
-<Card title="Components" icon="puzzle-piece" href="https://mintlify.com/docs/components">
-  Add cards, callouts, steps, tabs, and more to design and structure your pages.
-</Card>
-<Card title="Settings" icon="gear" href="https://mintlify.com/docs/organize/settings">
-  Set your site name, branding, and navigation in the `docs.json` file.
-</Card>
+## Ways to Work
+
+<CardGroup cols={3}>
+  <Card title="Web Editor" icon="globe" href="/platforms/web">
+    Full canvas in any browser. Boards saved to IndexedDB.
+  </Card>
+  <Card title="Desktop App" icon="desktop" href="/platforms/desktop">
+    Native files, drafts, and live CLI access via local IPC.
+  </Card>
+  <Card title="Agent Workflows" icon="robot" href="/automation/agents">
+    CLI and MCP server for scripted and AI-assisted editing.
+  </Card>
+</CardGroup>
+
+## Core Concepts
+
+<CardGroup cols={2}>
+  <Card title="Document Model" icon="layer-group" href="/concepts/document-model">
+    Pages, layers, shapes, bindings, and how documents are stored.
+  </Card>
+  <Card title="Transactions & Sync" icon="arrows-rotate" href="/concepts/transactions-and-sync">
+    Validated edits, undo/redo, proposals, and Automerge-based merging.
+  </Card>
+  <Card title="Import & Export" icon="file-import" href="/guide/import-and-export">
+    SVG, PNG, Excalidraw, Obsidian Canvas, Mermaid, and D2 support.
+  </Card>
+  <Card title="File Format" icon="file-code" href="/reference/file-format">
+    Native .inkfinite files, safe writes, versioning, and interchange formats.
+  </Card>
+</CardGroup>
+
+## Get Up and Running
+
+<Steps>
+  <Step title="Open the editor">
+    Open the [web editor](https://inkfinite.app) for an instant browser-based canvas, or install the desktop app for native file support. Read the [Web platform guide](/platforms/web) for storage details.
+  </Step>
+  <Step title="Create a board">
+    Choose **New board** from the board browser. Draw shapes with the toolbar, connect them with arrows, and use **Layout** to arrange them.
+  </Step>
+  <Step title="Save or export">
+    Browser boards save automatically. In the desktop app, choose **Save As** to create a `.inkfinite` file. Export SVG, PNG, or Excalidraw when you need to share with other tools.
+  </Step>
+  <Step title="Automate with the CLI">
+    Install `inkfinite` from [GitHub Releases](https://github.com/stormlightlabs/inkfinite/releases) or via `cargo install inkfinite-cli --locked`. Use `inkfinite inspect`, `query`, `shape`, and `render` to work with documents from scripts and agents.
+  </Step>
+</Steps>

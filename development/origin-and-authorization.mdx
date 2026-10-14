@@ -1,0 +1,88 @@
+---
+title: "Origin Policy and Desktop IPC Authorization in Inkfinite"
+sidebarTitle: "Origin & Auth"
+description: "How Inkfinite separates transaction provenance from authorization, and how the MCP server applies permission scopes before passing edits to the document engine."
+---
+
+Inkfinite records the source of each transaction separately from the rules that decide whether an operation is valid or authorized. Keeping those concerns separate prevents caller-supplied history metadata from becoming a permission credential. Origin is provenance; authorization belongs at the interface that can identify the caller and its granted permissions.
+
+## Transaction origin
+
+`Origin` is defined in `crates/inkfinite-core/src/lib.rs` and serialized as one of four values:
+
+| Value    | Meaning                                                          |
+| -------- | ---------------------------------------------------------------- |
+| `human`  | Edits made through the editor                                    |
+| `agent`  | Edits submitted through agent-oriented CLI and IPC paths         |
+| `sync`   | Changes received from a peer                                     |
+| `system` | Deterministic repair and other internal changes                  |
+
+Origin is provenance metadata. Code can retain it in transaction history, diagnostics, and attribution UI, but must not use it to grant or deny access. In particular, changing a transaction from `origin: agent` to `origin: human` must never give the caller more capability.
+
+## Validation and authorization
+
+The transaction engine applies document correctness rules to every origin. These include:
+
+- Schema validation
+- Causal-head and record-version checks
+- Atomic commit
+- Document validation
+- Ordinary shape and layer locks
+
+Authorization belongs at an interface that can identify the caller and its granted permissions. The general CLI is a capability interface: people, scripts, and agents can invoke it or construct a raw transaction draft. A permissioned integration such as MCP can enforce `read`, `create`, `modify`, `delete`, and `layout` permissions before passing a valid transaction to the engine.
+
+<Warning>
+  `agent_editable` is document metadata for permissioned integrations. It is not a document invariant, and the core engine must not infer a caller's authority from transaction provenance.
+</Warning>
+
+## Relevant code
+
+| Path                                                   | Responsibility                                                           |
+| ------------------------------------------------------ | ------------------------------------------------------------------------ |
+| `crates/inkfinite-core/src/lib.rs`                     | Defines `Origin`, provenance, and document metadata                      |
+| `crates/inkfinite-core/src/engine/policy.rs`           | Applies transaction schema checks and ordinary document locks            |
+| `crates/inkfinite-core/src/engine/query.rs`            | Queries records independently of layer visibility and transaction origin  |
+| `crates/inkfinite-core/src/session.rs`                 | Validates live proposals and applies them                                |
+| `crates/inkfinite-core/src/ipc`                        | Carries live transactions between CLI and desktop sessions               |
+| `crates/inkfinite-cli/src/cli`                         | Constructs agent-originated shape, mutation, and SVG import transactions  |
+| `packages/core/src/persistence/canonical.ts`           | Maps `agent_editable` between native records and editor state            |
+| `packages/ui/src/lib/editor/components/Toolbar.svelte` | Lets people set `agent_editable` on selected shapes                      |
+
+Generated document, transaction, and protocol schemas also expose `Origin` and `agent_editable`. Regenerate them with `pnpm bindings:generate` after changing either serialized type.
+
+## Current behavior
+
+The transaction engine does not branch on `Origin`. Direct CLI transactions can query and mutate records in invisible layers and records whose `agent_editable` value is false. Shape and layer locks still reject edits for every origin, including edits reached through a locked ancestor or a layer delete.
+
+`session.rs` requires agent origin at live proposal and apply entry points as a protocol-shape check, not as authorization. Proposal size, description length, stale-head handling, transaction validation, and atomic commit do not depend on origin. Live applies do not require a desktop access mode.
+
+## MCP permission model
+
+The local `inkfinite-mcp` stdio server is the policy-aware integration. Its behavior:
+
+- Defaults to read-only access
+- Selects rules by document path or desktop session ID
+- Applies `read`, `create`, `modify`, `delete`, and `layout` permission scopes
+- Filters hidden layers before presenting content to the agent
+- Requires `agent_editable` to be true for existing shape changes
+- Reports policy failures as `authorization_denied`
+
+Ordinary document locks remain core errors and are never bypassed by MCP policy. MCP can submit an authorized proposal to a live session; desktop review accepts or rejects it, and MCP can poll the resulting proposal state.
+
+<Note>
+  Committed transactions retain their origin. Causal heads, record versions, schema validation, document validation, and atomic commit apply to every caller regardless of origin value. Permissioned integrations must check caller permissions before passing a transaction to the engine — never after, and never by trusting the origin field in the transaction body.
+</Note>
+
+## Design intent
+
+<Accordion title="Why separate origin from authorization?">
+  A system that conflates provenance with permission creates an escalation path: any caller that can label its transaction as `human` gains human-level access. Keeping `Origin` as pure metadata forces authorization checks to live at the interface boundary, where the caller's actual identity and granted scopes are known. The core engine stays simple — it applies the same correctness rules regardless of who submitted the transaction.
+</Accordion>
+
+<Accordion title="Why does the CLI bypass agent_editable?">
+  The CLI is a direct capability interface. When a person or script runs `inkfinite`, they already have filesystem access to the `.inkfinite` file and OS-level access to the desktop session IPC socket. Blocking edits on `agent_editable` at the CLI level would not provide meaningful security — it would only add friction for legitimate scripting use cases. The `agent_editable` flag exists to give the MCP integration a lightweight signal for which shapes a person has marked safe for autonomous agent modification; it is not a security boundary.
+</Accordion>
+
+<Info>
+  See [Agent workflows](/automation/agents) for the MCP review flow and proposal lifecycle. See [Architecture](/development/architecture) for the authenticated local IPC protocol used between the CLI and desktop sessions.
+</Info>

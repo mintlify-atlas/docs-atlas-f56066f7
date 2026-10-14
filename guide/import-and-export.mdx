@@ -1,0 +1,92 @@
+---
+title: "Importing and Exporting Boards Between Inkfinite and Other Tools"
+sidebarTitle: "Import & Export"
+description: "Bring external files and clipboard content into Inkfinite, understand which formats stay editable, and export boards as vector, raster, or interchange files."
+---
+
+Use import when you want external content to become part of an Inkfinite board. Use export when you want an editable interchange file for another application or a presentation copy in a standard format. These are separate operations — importing does not alter the source, and exporting does not change the current document's native file or save state.
+
+## Supported Formats
+
+| Format | Import | Export | Result |
+|---|---|---|---|
+| Inkfinite (`.inkfinite`) | Yes | Yes | Native document with full edit history |
+| SVG | Yes | Yes | Supported geometry stays editable |
+| PNG and other images | As an image object | PNG | Raster content |
+| Excalidraw | Yes | Yes | Supported objects are mapped |
+| Obsidian / JSON Canvas | Yes | Yes | Supported nodes and edges are mapped |
+| Mermaid flowchart | Yes | No | Editable cards, frames, and arrows |
+| D2 | Yes | No | Editable cards, frames, and arrows |
+
+<Warning>
+  Exported files — SVG, PNG, Excalidraw, or Obsidian Canvas — are presentation or interchange copies. They do not contain the full document history, and some content may not round-trip perfectly. Always keep the `.inkfinite` file as your source of truth. Do not rely on an exported file as your only backup of a board.
+</Warning>
+
+## Importing Files
+
+<Steps>
+  <Step title="Open the import dialog or drop a file">
+    Choose **File → Import** from the menu, or drag and drop a supported file directly onto the canvas. You can also paste SVG markup, Markdown, plain text, or image data from the clipboard.
+  </Step>
+  <Step title="Review the import report">
+    Every import produces a report listing conversions, warnings, and any omitted content. Check the report before discarding the source file — some constructs have no direct Inkfinite equivalent and will be omitted.
+  </Step>
+  <Step title="Keep the source file">
+    Inkfinite retains the original SVG as a source asset, but unsupported visuals do not appear on the canvas. For other formats, keep the source until you have verified the imported board looks correct.
+  </Step>
+</Steps>
+
+### Format-specific import notes
+
+<Accordion title="SVG">
+  SVG import maps supported static elements to native shapes and assets. Paths and supported vector primitives become native Inkfinite geometry, editable with Direct Select. Unsupported visual content is stored as a static fallback with an import warning. See [Vector Editing](/guide/vector-editing) for details on how imported paths work.
+</Accordion>
+
+<Accordion title="Mermaid">
+  Mermaid imports `.mmd` and `.mermaid` files. The source must begin with `flowchart` or `graph`. Supported graph nodes, labels, groups, connections, and styles become editable Inkfinite objects. Unsupported node shapes become editable rectangular cards; unsupported directives are omitted and listed in the import report.
+</Accordion>
+
+<Accordion title="D2">
+  D2 imports `.d2` files. Like Mermaid, graph nodes and connections with direct Inkfinite equivalents are mapped to editable cards, frames, and arrows. The import report lists any constructs that could not be represented.
+</Accordion>
+
+<Accordion title="Excalidraw and Obsidian Canvas">
+  Importing an Excalidraw or Obsidian Canvas file creates a new Inkfinite document and leaves the source file unchanged. Supported objects are mapped to their Inkfinite equivalents; unsupported objects are listed in the import report.
+</Accordion>
+
+## Clipboard Paste
+
+The editor accepts pasted plain text, Markdown, SVG markup, and images from the clipboard. **Paste in place** (`Shift+Cmd/Ctrl+V`) preserves the original coordinates. Ordinary **Paste** places content near the current pointer position.
+
+Native clipboard copy preserves hierarchy, assets, and connections. When copying Inkfinite objects to the clipboard, you have additional options:
+
+| Action | What goes on the clipboard |
+|---|---|
+| **Copy** | Native Inkfinite objects with hierarchy and connections |
+| **Copy as SVG** | SVG code for the current selection |
+| **Copy document as SVG** | SVG code for the entire current page |
+| **Copy as PNG** | PNG image of the current selection |
+| **Copy document as PNG** | PNG image of the entire current page |
+| **Copy as transparent PNG** | PNG with transparency preserved |
+
+Inkfinite writes both SVG and plain-text clipboard representations when the browser supports rich clipboard data. If it does not, the editor copies the markup as plain text and reports that fallback. If image clipboard writes are unavailable, Inkfinite downloads a PNG file instead.
+
+## Exporting a Board
+
+Choose **File → Export** and select a format and scope.
+
+<Tabs>
+  <Tab title="SVG">
+    Export the current selection or the entire current page as an SVG file. SVG export is the best choice when the output needs to remain a vector graphic that can be opened in another design tool.
+  </Tab>
+  <Tab title="PNG">
+    Export the current selection or viewport as a PNG. Choose a transparent PNG when the output should retain transparent pixels. PNG clipboard actions render without editor overlays.
+  </Tab>
+  <Tab title="Excalidraw / Obsidian Canvas">
+    Export maps supported editable content and reports any content that the target format cannot represent. Unsupported objects appear in the export report.
+  </Tab>
+</Tabs>
+
+Export does not change the current desktop document's native file path or saved state. After exporting, the `.inkfinite` file remains the source and any further saves go there.
+
+See [Interoperability](/reference/interoperability) for a concise capability matrix and a summary of known differences between Inkfinite and each supported format.

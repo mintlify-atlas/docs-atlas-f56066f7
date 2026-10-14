@@ -1,0 +1,161 @@
+---
+title: "Inkfinite Desktop: Native Files, Drafts, and Live CLI"
+sidebarTitle: "Desktop"
+description: "Open and save canonical .inkfinite files, keep work safe with atomic writes, and run CLI commands against a live document session over authenticated IPC."
+---
+
+The desktop app combines the full Inkfinite canvas with native file handling and authenticated local CLI access. Unlike the web editor, which stores boards in IndexedDB, the desktop app reads and writes Automerge-backed `.inkfinite` files directly on your filesystem. This makes documents portable: you can copy them, put them in version control, and operate on them with the `inkfinite` CLI — both while the file is closed and, through live IPC, while it is open in the editor.
+
+## Document sessions
+
+Every open document in the desktop app is a **session**. A session tracks the canonical native path of the document, the active page, the current selection, the viewport state, and the connected CLI actors.
+
+<Steps>
+  <Step title="Open a file">
+    Use **File → Open** to load a canonical `.inkfinite` file from disk. The app registers the file path as the session's canonical path and begins tracking it for safe writes.
+  </Step>
+  <Step title="Work with drafts">
+    New documents that have never been saved start as **drafts** in the app's local data directory. Drafts are preserved between launches, but they do not have a canonical path until you explicitly save them.
+  </Step>
+  <Step title="Save to a canonical path">
+    Use **File → Save As** to write a draft or an existing document to a chosen location. After **Save As**, the session's canonical path updates to the new location and subsequent saves write there atomically.
+  </Step>
+</Steps>
+
+<Info>
+  Exporting a PNG, SVG, Excalidraw file, or Obsidian Canvas file does **not** change the session's canonical path. The app tracks exports separately from the native document, so your `.inkfinite` file is never silently redirected to an export format.
+</Info>
+
+## Safe writes and file protection
+
+The desktop backend applies several layers of protection every time it writes a canonical `.inkfinite` file:
+
+- **File locks** prevent two processes from writing to the same file simultaneously.
+- **Recovery data** is written before the main file is updated, so a crash mid-write leaves a recoverable state.
+- **Atomic replacement** swaps a completed temporary file into the canonical path in a single operation, eliminating partial writes.
+
+These safeguards protect your documents from corruption, but they do create a constraint you must respect:
+
+<Note>
+  Do not edit a `.inkfinite` file with a file-mode CLI command (`shape`, `connect`, `layout`, `apply`, `import svg`) while that file is open in the desktop app. File-mode commands operate directly on a closed file. If the document is already open, use the **live CLI workflow** instead — add `--app` to structured mutation commands or use `app apply` to route changes through the authenticated IPC session.
+</Note>
+
+A lock or stale-head error from the CLI is a signal to inspect the current state, not a reason to overwrite or remove the lock file. Run `inkfinite app status --json` to confirm whether a session is active before attempting a file-mode edit.
+
+## Local CLI access
+
+When the desktop app is running, it exposes an authenticated IPC endpoint that the local `inkfinite` CLI discovers automatically. CLI discovery and authentication are scoped to the current user account — no network access or external credentials are required.
+
+### Read-only access
+
+These commands work against an open session without modifying the document:
+
+```sh
+inkfinite app status --json
+inkfinite app context --json
+inkfinite app inspect --json
+inkfinite app query --role architecture.service --detail --limit 20 --json
+```
+
+`app status` reports whether a session is active. `app context` returns the active page, current selection, viewport bounds, actor identity, and current document heads — useful as a starting point before constructing any mutation. `app query` accepts the same filters as file-mode `query`.
+
+### Live mutations
+
+Add `--app` to any structured mutation command to apply it to the open document instead of a file:
+
+```sh
+inkfinite shape patch --app \
+  --role architecture.service \
+  --patch '@service-patch.json' \
+  --json
+
+inkfinite connect --app \
+  --source shape:service --target shape:database \
+  --kind relation --relation-type depends_on --json
+
+inkfinite layout --app \
+  --role architecture.service \
+  --algorithm graph --direction top-to-bottom --json
+```
+
+You can also submit a prepared transaction directly:
+
+```sh
+inkfinite app apply --transaction transaction.json --json
+```
+
+<Tip>
+  Always test mutations with `--dry-run --json` before applying them live. A dry run validates the transaction against current heads and record versions without committing any changes.
+
+  ```sh
+  inkfinite shape patch --app \
+    --role architecture.service \
+    --patch '@service-patch.json' \
+    --dry-run --json
+  ```
+</Tip>
+
+Structured `--app` mutations and `app apply` commit immediately after enforcing four preconditions: current document heads, per-record version checks, full transaction validation, and document lock state. A failed precondition exits with code `5` — inspect current state and rebuild the transaction from the updated heads rather than retrying the original operation.
+
+### Rendering a live session
+
+Render the current canvas state to SVG or PNG without closing the document:
+
+```sh
+inkfinite app render --output current.svg
+inkfinite app render --output current.png
+inkfinite app render --output crop.png --region 0,0,1920,1080
+```
+
+Pass `--transaction` and `--proposed-output` together to preview a proposed change as a rendered image without committing it to the document.
+
+### Available commands at a glance
+
+<Accordion title="Full live-mode command reference">
+
+| Command | Purpose |
+|---|---|
+| `app status` | Check whether a desktop session is active |
+| `app context` | Report active page, selection, viewport, actor, and heads |
+| `app inspect` | Print a document summary or materialized snapshot |
+| `app query` | Find records by semantic, structural, kind, or bounds filters |
+| `shape patch --app` | Apply a patch to matching shapes in the open document |
+| `shape create --app` | Create a new shape in the open document |
+| `shape delete --app` | Delete matching shapes from the open document |
+| `connect --app` | Add a connector or relation between shapes |
+| `layout --app` | Apply an alignment, distribution, or graph layout |
+| `app apply` | Validate and commit a transaction draft from JSON |
+| `app render` | Write an SVG or PNG of the current canvas state |
+
+</Accordion>
+
+## Running the desktop app from source
+
+To build and run the desktop app from a checkout, you need Node.js 18 or newer, pnpm, Rust 1.89, and the [Tauri 2 prerequisites](https://v2.tauri.app/start/prerequisites/) for your operating system.
+
+```sh
+pnpm install
+rustup target add wasm32-unknown-unknown
+cargo install wasm-bindgen-cli --version 0.2.126 --locked
+pnpm wasm:build
+pnpm tauri dev
+```
+
+`pnpm tauri dev` compiles the Rust document engine, the Tauri shell, and the Svelte frontend, then launches the desktop window. See [Building from Source](/development/building-from-source) for the full workspace setup and all available build commands.
+
+## Related pages
+
+<CardGroup cols={2}>
+  <Card title="Command-Line Interface" icon="terminal" href="/automation/cli">
+    Full command reference, file-mode workflows, output formats, and exit codes.
+  </Card>
+  <Card title="Agent Workflows" icon="robot" href="/automation/agents">
+    Structure CLI and MCP interactions for coding agents and automated scripts.
+  </Card>
+  <Card title="Transactions and Sync" icon="arrows-rotate" href="/concepts/transactions-and-sync">
+    Understand how Automerge heads, record versions, and atomic commits work.
+  </Card>
+  <Card title="Building from Source" icon="code" href="/development/building-from-source">
+    Set up Rust, WebAssembly, and Tauri for desktop development.
+  </Card>
+</CardGroup>

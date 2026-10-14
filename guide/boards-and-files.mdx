@@ -1,0 +1,73 @@
+---
+title: "Managing Boards, Files, Workspaces, and Document Recovery"
+sidebarTitle: "Boards & Files"
+description: "Open, create, and organize boards in the browser and on the desktop — including IndexedDB limits, the Save As flow, workspace directories, and crash recovery."
+---
+
+A board is the document you open in the editor. Whether it lives in browser storage or as a native file on disk depends on which platform you are using, and understanding that difference helps you avoid data loss and choose the right workflow for your project.
+
+## Board Browser
+
+Press **Cmd/Ctrl+B** to open the board browser from anywhere in the editor. The board browser is your central place to manage all boards available in the current context.
+
+From the board browser you can:
+
+- **Create** a new blank board
+- **Search** boards by name
+- **Sort** the list by name, last updated, or size
+- **Inspect** a board's storage location, save state, and last-updated timestamp
+- **Duplicate** a board to create an independent copy
+- **Rename** a board in place
+- **Delete** a board (with confirmation)
+
+The browser highlights the currently open board. Inkfinite flushes all pending changes before switching to a different board. If a save or board action fails, the browser keeps the current board open and reports the error — it does not silently discard unsaved work. The board list supports full keyboard navigation and is usable on narrow touch screens.
+
+## Browser Storage
+
+The web app stores boards in **IndexedDB**, scoped to the current origin and browser profile.
+
+<Warning>
+  Browser storage is tied to a specific browser, profile, and site origin. A different browser, a different browser profile, or a different deployment URL each has an entirely separate database with no shared boards. **Clearing site data, clearing browser storage, or using a private/incognito window can permanently remove access to boards stored there.** Always export important browser-based work to a file you control, or use the desktop app for work you cannot afford to lose.
+</Warning>
+
+When you need a board that you can copy, version-control, inspect with the CLI, or back up manually, use the desktop app. The desktop app stores boards as ordinary files on your filesystem.
+
+## Desktop Files and Drafts
+
+When you create a new board in the desktop app, it starts as an **unsaved draft** in the app's local data directory. The draft is functional — you can draw, undo, and close and reopen it — but it has no named file path on your filesystem.
+
+<Steps>
+  <Step title="Work in the draft">
+    Draw and edit normally. The app saves draft changes automatically to the local data directory.
+  </Step>
+  <Step title="Choose Save As">
+    When you are ready to commit to a permanent location, choose **File → Save As**. Pick a folder and filename. Inkfinite creates a `.inkfinite` file at that path.
+  </Step>
+  <Step title="Save from that point on">
+    After **Save As**, **File → Save** (`Cmd/Ctrl+S`) writes changes to the named file. The draft in the local data directory is no longer the canonical copy.
+  </Step>
+</Steps>
+
+Import and export paths are always separate from the native document path. Exporting a board to SVG does not change where `Cmd/Ctrl+S` writes to, and importing a file creates new objects in the current board without moving its file.
+
+## Workspace Directories
+
+The desktop board browser can work with a **workspace directory** — a folder on your filesystem that you designate as a project home. When a workspace is active, the board browser lists `.inkfinite` files in that directory alongside recent files, making it easy to switch between related boards.
+
+Open documents through the desktop app rather than double-clicking files in Finder or Explorer. The app manages **file locks**, **recovery data**, and **live CLI sessions** for open documents. Opening a file outside the app can leave a stale lock that blocks CLI access.
+
+## Recovery
+
+Inkfinite writes documents using a **write-to-temp-then-rename** strategy. The new content is written to a temporary file first; only when that write completes successfully does Inkfinite replace the previous file with an atomic rename. This means a crash or power loss mid-write leaves the previous file intact.
+
+<Info>
+  If recovery data is available after an interrupted write, Inkfinite will offer to restore it. Validate the recovered content and save it as a new file rather than immediately overwriting the last known good file. Review both copies before deciding which to keep.
+</Info>
+
+A **sidecar lock file** is created alongside an open `.inkfinite` file while the desktop app or CLI has it open. Do not manually delete a sidecar lock while the app or CLI is running — this can cause conflicting writes. If you see a stale lock after a crash, inspect the current document state with `inkfinite inspect` before taking any action.
+
+```sh
+inkfinite inspect my-board.inkfinite --summary --json
+```
+
+This prints the document's heads, page count, shape count, and last-write metadata — enough to confirm whether the file is intact before deciding how to handle recovery.

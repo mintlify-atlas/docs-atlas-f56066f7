@@ -1,0 +1,136 @@
+---
+title: "Inkfinite File Format: Native Files, Versioning, and Interchange"
+sidebarTitle: "File Format"
+description: "The .inkfinite Automerge binary format, DocumentSnapshot contract, safe write procedure, versioning strategy, and supported editable interchange formats."
+---
+
+Inkfinite uses `.inkfinite` as its native document format. The editor can also import and export Excalidraw and Obsidian Canvas files, and import Mermaid and D2 source when you need to move editable content between applications. This page covers the technical contract behind the native format, how safe writes protect against data loss, and the mapping tables for every editable interchange format.
+
+## Native Files
+
+A canonical `.inkfinite` file is Automerge's compact binary form containing both the current document state and its full causal change history. Keep this file as the source of truth when you expect to continue editing in Inkfinite — no other format stores the Automerge history, so switching to an interchange format for round-tripping will discard that history.
+
+Opening and saving native files is intentionally separate from editable-format import and export. Importing an external file always creates a new Inkfinite document. Exporting does not change the current document's native path or saved state. The two workflows do not interfere with each other.
+
+## Document Contract
+
+The materialized snapshot carried by a file has a stable format identifier and an explicit contract version. The `DocumentSnapshot` struct defines the full envelope:
+
+```rust
+pub struct DocumentSnapshot {
+    pub format: FormatId,
+    pub format_version: u32,
+    pub document_id: DocumentId,
+    pub heads: Vec<ChangeHash>,
+    pub document: Document,
+}
+```
+
+Each field plays a specific role:
+
+- **`format`** — always `"inkfinite.document"`. Presence of this identifier signals that the file is an Inkfinite native document rather than any other Automerge-based format.
+- **`format_version`** — currently `2`. Future releases increment this field when the serialized contract changes, which allows the engine to reject or migrate files safely.
+- **`document_id`** — a stable identifier that persists across saves and replicas. Two replicas editing the same document share the same `document_id`.
+- **`heads`** — the causal heads of the Automerge change graph at save time. These are required for merge and sync.
+- **`document`** — the normalized body of the document: pages, layers, shapes, bindings, and assets.
+
+The document body follows these structural rules:
+
+- Binding records may include a `relation_type` alongside their source and target shape IDs.
+- Pages own ordered layers. Layers own ordered root shapes. Containers own their ordered child shapes.
+- Container child order drives frame presentation and SVG export.
+- Card fields are stored in the container's semantic metadata; title and body remain ordinary text and Markdown children.
+- IDs remain stable across saves and replicas.
+- Text and Markdown shapes store their CSS font family as a string. Card titles and bodies inherit font families from their child shapes, so changing a card's font does not require a document format migration.
+
+<Note>
+  The web and desktop editors load their bundled fonts at runtime. A headless renderer needs the requested family supplied as a font asset or an available system font family, and otherwise reports a fallback warning.
+</Note>
+
+<Warning>
+  The CLI can print a deterministic JSON projection of a document for inspection and CI use. That projection is **not** a second file format. It cannot replace the Automerge history or causal heads stored in the canonical `.inkfinite` file and must never be used as a persistence target.
+</Warning>
+
+## Safe Writes
+
+`DocumentFile` holds an advisory sidecar lock for the canonical path, preventing two processes from writing the same file simultaneously. Every transaction is validated before it is committed. The save sequence is:
+
+<Steps>
+  <Step title="Write to a temporary file">
+    Inkfinite writes the new snapshot to a temporary file in the same directory as the canonical path.
+  </Step>
+  <Step title="Flush and sync">
+    The temporary file is flushed and synced to disk to ensure the bytes are durable before the replacement step.
+  </Step>
+  <Step title="Atomic replacement">
+    The temporary file replaces the canonical file atomically. On supported platforms this is a rename, which is safe against process crashes mid-write.
+  </Step>
+  <Step title="Recovery from interrupted writes">
+    An interrupted replacement leaves recovery data that the engine can validate and save as a new canonical baseline using the same document validation and persistence path as a normal save.
+  </Step>
+</Steps>
+
+Invalid bytes, stale heads, missing references, and invalid record properties are all rejected before the canonical file is changed. Inkfinite never overwrites a valid document with a corrupt one.
+
+## Versioning
+
+`format_version` and protocol version fields are explicit so future releases can reject or migrate unsupported data safely. They describe the current serialized contract and do not select between document models or alter the file save flow. The current `format_version` is `2`.
+
+When Inkfinite opens a file with an unrecognized `format_version`, it rejects the file rather than attempting a speculative parse that could silently corrupt document content.
+
+## Editable Interchange
+
+Use **Import** in the editor toolbar to load an Excalidraw `.excalidraw`, Obsidian Canvas `.canvas`, Mermaid `.mmd` or `.mermaid`, or D2 `.d2` file. Use **Export** to write the current page as Excalidraw or Obsidian Canvas. The desktop app offers the same commands in its File menu.
+
+Inkfinite limits imports to 16 MB of UTF-8 JSON. It rejects malformed geometry and duplicate identifiers instead of guessing at corrupt data, and it omits edges and bindings that refer to missing or unsupported shapes, listing them in the conversion notes. Both Excalidraw and JSON Canvas describe a single canvas, so Inkfinite imports them as a one-page document and exports only the selected page — an export notes this when the source document has more than one page.
+
+### Excalidraw
+
+Inkfinite reads and writes Excalidraw v2 scene JSON. The following table describes how each Excalidraw element maps to an Inkfinite object:
+
+| Excalidraw content | Inkfinite result |
+| --- | --- |
+| Rectangle, ellipse, text | Matching editable shape |
+| Line or arrow | Matching line or arrow. Extra line vertices are lost |
+| Bound arrow and label | Arrow bindings and label |
+| Freedraw | Freehand stroke |
+| Group or frame | Flat Inkfinite group |
+| Embeddable URL | Markdown link card |
+| Markdown exported from Inkfinite | Literal Excalidraw text |
+| Image, iframe, or diamond | Omitted with a conversion note |
+
+Excalidraw's rough rendering, fill patterns, canvas settings, nested group hierarchy, some arrowhead styles, and exact font metrics do not have Inkfinite equivalents. Embedded Excalidraw raster images become editable Inkfinite image shapes when their file data is present; images without file data are omitted with a conversion note.
+
+### Obsidian Canvas (JSON Canvas 1.0)
+
+Inkfinite implements the [JSON Canvas 1.0](https://jsoncanvas.org/spec/1.0/) structure used by Obsidian `.canvas` files. The following table describes how each JSON Canvas node type maps to an Inkfinite object:
+
+| JSON Canvas content | Inkfinite result |
+| --- | --- |
+| Text node | Markdown card |
+| File node | Editable file reference, including an optional subpath |
+| Link node | Editable URL reference |
+| Group node | Inkfinite frame with label, color, and source metadata |
+| Edge between nodes | Bound Inkfinite arrow |
+
+JSON Canvas does not represent general drawing primitives, freehand strokes, layers, rotation, or free-floating arrows. When exporting, Inkfinite writes text and Markdown as cards, file and URL references as file or link nodes, bound arrows as edges, and containers as groups. Native image assets become file nodes because JSON Canvas stores paths rather than embedded bytes. Other drawing shapes are omitted and listed in the conversion notes. Rotated objects use axis-aligned bounds.
+
+File nodes refer to paths in an Obsidian vault. Inkfinite preserves those paths as editable file references but does not copy or resolve the target attachments. Group background paths are kept in frame source metadata.
+
+### Mermaid and D2 Imports
+
+Mermaid imports flowcharts declared with `flowchart` or `graph`. The supported subset includes directions, common node labels and shapes, subgraphs, arrow labels, `classDef`, `class`, `style`, `linkStyle`, and `click` URLs. D2 imports shape declarations, nested groups, labels, common fills and strokes, directions, and `--`, `->`, `<-`, and `<->` connections. Both importers create ordinary Inkfinite cards, frames, and bound arrows, then run the nodes through the shared flow layout.
+
+The importers report unsupported constructs rather than silently treating them as native equivalents. Unsupported node shapes use rectangular Markdown cards. D2 icons, images, tooltips, classes, scenarios, and advanced layout directives are omitted with warnings.
+
+<Note>
+  Export to Mermaid or D2 is not part of the current interchange surface. These formats are import-only.
+</Note>
+
+## Image and SVG Exports
+
+PNG and SVG are presentation exports rather than editable interchange formats. PNG captures the current viewport as a raster image. SVG can export the selected shapes or all shapes on the current page as vector output.
+
+<Warning>
+  Use `.inkfinite`, `.excalidraw`, or `.canvas` when another editor needs to continue working with individual objects. PNG and SVG exports do not preserve editable shape data.
+</Warning>

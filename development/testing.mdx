@@ -1,0 +1,142 @@
+---
+title: "Testing Inkfinite: Unit, Integration, and Playwright E2E"
+sidebarTitle: "Testing"
+description: "How Inkfinite tests document behavior, editor workflows, visual regressions, and SVG import with Rust tests, Vitest suites, and Playwright end-to-end tests."
+---
+
+Inkfinite keeps correctness checks near the code they protect. Rust tests and Vitest suites cover the document model, interchange boundaries, persistence, and component behavior. Playwright covers editor workflows that require the full web app. Every layer has a focused entry point so you can run only what a change touches without waiting for the full suite.
+
+## Running the full suite
+
+Run the complete unit and integration test suite from the repository root:
+
+```sh
+pnpm test
+```
+
+This runs all Vitest suites across the pnpm workspace. Rust unit and integration tests run separately through Cargo:
+
+```sh
+cargo test --workspace --all-features
+```
+
+## Component states
+
+Storybook stories in `packages/ui/src/` show shared controls and complete editor states in light and dark themes. Each story should include all states that apply to its component: hover, pressed, selected, disabled, busy, and focus-visible. Menus and popovers should also show dismissal, focus restoration, and placement at viewport edges.
+
+```sh
+# Start the Storybook development server
+pnpm dev:ui
+
+# Build a static Storybook for review
+pnpm --filter @inkfinite/ui storybook:build
+```
+
+## Editor end-to-end tests
+
+`apps/web/e2e/` contains behavioral and visual Playwright tests. The shared `InkfiniteEditor` fixture provides canvas operations such as choosing tools, dragging, drawing rectangles, and selecting objects. Use accessible locators for controls and keep coordinate-based input inside these canvas operations.
+
+Behavioral tests assert editor behavior. Visual tests use the `@visual` tag and Playwright's `toHaveScreenshot()` matcher to compare the rendered result with checked-in baselines.
+
+```sh
+# Run behavioral and visual editor tests
+pnpm test:e2e
+
+# Compare visual baselines only
+pnpm test:visual
+
+# Review and accept an intentional visual change
+pnpm test:visual:update
+
+# Inspect or debug tests interactively from apps/web
+pnpm test:e2e:ui
+```
+
+The Playwright setup starts the web app, sets the viewport, waits for fonts, hides screenshot carets, and retains traces on failures. Tests choose the theme through the shared fixture. The suite runs editor tests serially because simultaneous editor startup makes the development server and WebAssembly initialization unreliable.
+
+<Warning>
+  Keep the browser channel, fonts, operating system, and headless mode consistent when creating authoritative visual baselines. These inputs affect rasterization and will cause spurious diff failures if they differ between machines. Review every changed baseline at its captured size before accepting it with `pnpm test:visual:update`.
+</Warning>
+
+Playwright writes actual, expected, and diff images under `apps/web/test-results/` when a comparison fails. Use the Playwright suite for UI validation. Use standalone scripts for profiling and publication assets — not a script that starts Vite, launches a browser, and writes screenshots without assertions.
+
+## SVG import fixture corpus
+
+`fixtures/svg-import/` contains the checked-in inputs used by the Rust SVG import integration tests. The corpus includes:
+
+- Icon and logo inputs derived from the Catppuccin, Simple Icons, Skill Icons, and Devicon Plain Iconify sets
+- Nested group transforms
+- Compound even-odd paths
+- Unsupported features and active content
+- Malformed XML, numbers, paths, and transforms
+
+The tests check native node counts, source retention, `currentColor`, path validation, fill rules, warning coverage, and typed failures.
+
+Run the focused SVG import fixture suite with:
+
+```sh
+cargo test -p inkfinite-core --test svg_import_fixtures
+```
+
+<Tip>
+  Add a minimized fixture when a real SVG exposes an importer regression. The repository lists the sources and licenses for the Iconify-derived inputs in `fixtures/svg-import/README.md`.
+</Tip>
+
+## Focused package tests
+
+Run tests for a single package with `pnpm --filter`:
+
+```sh
+# Run tests for @inkfinite/core only
+pnpm --filter @inkfinite/core test
+
+# Run tests for @inkfinite/editor only
+pnpm --filter @inkfinite/editor test
+```
+
+Run a focused Cargo test for a single crate or integration test file:
+
+```sh
+# All tests in inkfinite-core
+cargo test -p inkfinite-core
+
+# A single test by name
+cargo test -p inkfinite-core transaction_commit_validates_schema
+```
+
+## What each layer covers
+
+<Accordion title="Rust tests (cargo test)">
+  Rust unit tests live beside the modules they cover. Integration tests live in `crates/inkfinite-core/tests/`. They cover:
+
+  - Document model creation, validation, and serialization
+  - Transaction apply, rollback, and atomic commit
+  - Automerge state merges and causal head checks
+  - SVG import: parsing, element mappings, transforms, and warnings (via `svg_import_fixtures`)
+  - Path geometry: validation, bounds, and topology operations
+  - Headless SVG rendering output
+  - File read, write, locking, and recovery
+</Accordion>
+
+<Accordion title="Vitest suites (pnpm test)">
+  TypeScript unit tests cover:
+
+  - `@inkfinite/core`: editor model projections, canonical adapter conversions, geometry helpers, path metrics, and SVG export
+  - `@inkfinite/editor`: input normalization, runtime state machine transitions, and transaction draft construction
+  - `@inkfinite/ui`: Svelte component logic and view model behavior
+</Accordion>
+
+<Accordion title="Playwright E2E (pnpm test:e2e)">
+  End-to-end tests cover:
+
+  - Tool selection and canvas interactions
+  - Shape creation, selection, and transformation
+  - Inspector controls and style edits
+  - Import and export workflows
+  - Undo and redo
+  - Visual regression baselines for the complete editor UI in light and dark themes
+</Accordion>
+
+<Info>
+  See [Performance corpus and profiling](/development/performance-corpus) for benchmark and profiling commands that complement the correctness suite.
+</Info>

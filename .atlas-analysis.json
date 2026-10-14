@@ -1,0 +1,114 @@
+{
+  "projectType": "saas",
+  "projectName": "Inkfinite",
+  "projectDescription": "A local-first infinite canvas for drawing, wireframing, and diagramming that runs in the browser or as a desktop app, with a shared Rust document engine, CLI, and MCP server for agent-assisted editing.",
+  "theme": "willow",
+  "primaryColor": "#8de2bc",
+  "lightColor": "#8a69f7",
+  "darkColor": "#f7f8fb",
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Documentation",
+        "groups": [
+          {
+            "group": "Get Started",
+            "pages": [
+              "introduction",
+              "quickstart"
+            ]
+          },
+          {
+            "group": "Using the Editor",
+            "pages": [
+              "guide/editor",
+              "guide/objects-and-structure",
+              "guide/layout-and-connections",
+              "guide/vector-editing",
+              "guide/import-and-export",
+              "guide/boards-and-files"
+            ]
+          },
+          {
+            "group": "Platforms",
+            "pages": [
+              "platforms/web",
+              "platforms/desktop"
+            ]
+          },
+          {
+            "group": "Concepts",
+            "pages": [
+              "concepts/document-model",
+              "concepts/transactions-and-sync"
+            ]
+          },
+          {
+            "group": "Automation",
+            "pages": [
+              "automation/cli",
+              "automation/agents"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "Reference",
+        "groups": [
+          {
+            "group": "Reference",
+            "pages": [
+              "reference/shortcuts",
+              "reference/interoperability",
+              "reference/file-format"
+            ]
+          },
+          {
+            "group": "Development",
+            "pages": [
+              "development/architecture",
+              "development/building-from-source",
+              "development/svg-import",
+              "development/native-path-geometry",
+              "development/testing",
+              "development/performance-corpus",
+              "development/origin-and-authorization"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "keyFeatures": [
+    "Infinite canvas with shapes, arrows, text, Markdown, freehand strokes, frames, groups, and layers",
+    "Local-first document model using Automerge for history, merging, and offline editing",
+    "Native .inkfinite files with atomic writes, file locking, and recovery",
+    "Browser-based web editor with IndexedDB storage and WebAssembly document engine",
+    "Desktop app (Tauri) with native file handling and live CLI access via authenticated IPC",
+    "CLI (inkfinite) for inspecting, querying, editing, validating, and rendering documents",
+    "MCP server (inkfinite-mcp) for permissioned agent access with proposal review workflow",
+    "Import/export for SVG, Excalidraw, Obsidian Canvas, Mermaid, D2, PNG",
+    "Graph layout (tree, flow, radial), snapping, stencil library, and vector path editing",
+    "TypeScript packages (@inkfinite/core, @inkfinite/editor, @inkfinite/ui, @inkfinite/bindings) sharing one document contract with Rust"
+  ],
+  "publicApiSurface": [
+    "inkfinite new — Create a blank canonical document",
+    "inkfinite inspect — Print a document summary or materialized snapshot",
+    "inkfinite query — Find records by semantic, structural, kind, or bounds filters",
+    "inkfinite validate — Load and validate a canonical document",
+    "inkfinite shape / connect / layout — Build or edit a structured file or live desktop session",
+    "inkfinite apply — Validate and apply a transaction draft from JSON",
+    "inkfinite import svg — Import static SVG content into native shapes",
+    "inkfinite render — Write an SVG or PNG of a document or filtered view",
+    "inkfinite app — Inspect or work with a running desktop session",
+    "inkfinite completions — Print shell completion scripts (Bash, Fish, Zsh)",
+    "inkfinite schema / capabilities — Print machine-readable contracts",
+    "inkfinite-mcp — Stdio MCP server with read/write policy, proposals, and desktop session discovery",
+    "@inkfinite/core — Headless editor model, geometry, actions, interchange, and persistence",
+    "@inkfinite/editor — DOM input, interaction runtime, Canvas 2D renderer, transaction drafts",
+    "@inkfinite/bindings — Generated TypeScript contracts from Rust (DocumentSnapshot, EditorPatch, PathGeometry, etc.)",
+    "DocumentSnapshot { format, format_version, document_id, heads, document }",
+    "Transaction { id, actor, preconditions, operations[] }",
+    "inkfinite_capabilities / inkfinite_propose / inkfinite_proposal_status (MCP tools)"
+  ]
+}

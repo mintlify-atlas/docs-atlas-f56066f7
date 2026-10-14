@@ -1,0 +1,143 @@
+---
+title: "Build Inkfinite from Source: Web, Desktop, and CLI"
+sidebarTitle: "Building"
+description: "Step-by-step instructions to set up Rust, WASM, pnpm, and Tauri, then run the web app, desktop app, CLI, and full workspace checks."
+---
+
+Inkfinite is a pnpm workspace containing Rust crates, a WebAssembly document engine, a Svelte web app, and a Tauri desktop shell. All components are built from the same repository root, and most day-to-day tasks run through either `pnpm` or `cargo` commands defined at the workspace level.
+
+## Requirements
+
+Before cloning, ensure the following tools are installed:
+
+| Tool | Minimum version | Notes |
+| ---- | --------------- | ----- |
+| Node.js | 18 or newer | Required for all pnpm commands |
+| pnpm | any current release | Workspace package manager |
+| Rust | 1.89 | Install via [rustup](https://rustup.rs) |
+| Tauri 2 prerequisites | — | Desktop only — see [Tauri docs](https://v2.tauri.app/start/prerequisites/) for your OS |
+
+## Setup
+
+<Steps>
+  <Step title="Install JavaScript packages">
+    From the repository root, install the full pnpm workspace:
+
+    ```sh
+    pnpm install
+    ```
+  </Step>
+
+  <Step title="Add the WebAssembly target">
+    The browser app and WASM worker require the `wasm32-unknown-unknown` Rust target:
+
+    ```sh
+    rustup target add wasm32-unknown-unknown
+    ```
+  </Step>
+
+  <Step title="Install wasm-bindgen CLI">
+    Install the exact `wasm-bindgen` CLI version pinned in `Cargo.lock`. The `--locked` flag ensures the version matches:
+
+    ```sh
+    cargo install wasm-bindgen-cli --version 0.2.126 --locked
+    ```
+  </Step>
+
+  <Step title="Build the WASM module">
+    Build the Rust WebAssembly module so the web worker and browser persistence adapter have a compiled artifact:
+
+    ```sh
+    pnpm wasm:build
+    ```
+  </Step>
+</Steps>
+
+## Run the applications
+
+### Web app and documentation site
+
+Start the development server for the documentation site and web editor together:
+
+```sh
+pnpm dev:web
+```
+
+Open the printed local URL for the documentation site, or append `/app` to the URL to open the editor directly.
+
+### Desktop app
+
+Start the Tauri desktop app in development mode. This compiles the Rust backend and opens the desktop window:
+
+```sh
+pnpm tauri dev
+```
+
+<Note>
+  The first `pnpm tauri dev` run compiles the full Rust workspace. Subsequent runs are faster because Cargo caches compiled crates.
+</Note>
+
+## Workspace commands
+
+### CLI and distribution
+
+Build the CLI binary with Cargo for local use:
+
+```sh
+cargo build -p inkfinite-cli
+```
+
+Create target-named CLI and MCP release archives with checksums for distribution:
+
+```sh
+cargo xtask dist
+```
+
+### Regenerating TypeScript bindings
+
+After changing any shared Rust types, regenerate `@inkfinite/bindings` so TypeScript contracts stay in sync:
+
+```sh
+pnpm bindings:generate
+```
+
+<Warning>
+  Never edit files inside `packages/bindings` by hand. They are fully generated from Rust types and will be overwritten the next time `pnpm bindings:generate` runs.
+</Warning>
+
+## Workspace checks
+
+Run all checks from the repository root before opening a pull request. Each command covers a different layer of the codebase:
+
+<CodeGroup>
+```sh Rust
+# Format check
+cargo fmt --all -- --check
+
+# Full test suite
+cargo test --workspace --all-features
+
+# Clippy lints — warnings are errors
+cargo clippy --workspace --all-targets --all-features -- -D warnings
+```
+
+```sh TypeScript / Svelte
+# Format check
+pnpm format:check
+
+# Vitest unit and integration tests
+pnpm test
+
+# Svelte type check
+pnpm check
+
+# ESLint
+pnpm lint
+```
+</CodeGroup>
+
+All eight commands must pass on CI. Running them locally before pushing avoids round-trips on slow lint failures.
+
+<Tip>
+  See [Testing](/development/testing) for focused package and Playwright commands. See [Performance corpus and profiling](/development/performance-corpus) for native, process, renderer, and browser measurement commands.
+</Tip>

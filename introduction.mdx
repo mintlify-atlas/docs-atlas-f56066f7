@@ -1,0 +1,76 @@
+---
+title: "Inkfinite: Local-First Infinite Canvas for Every Workflow"
+sidebarTitle: "Introduction"
+description: "Local-first infinite canvas for drawing, wireframing, and diagramming — runs in the browser and desktop with a shared Rust engine, CLI, and MCP server."
+---
+
+Inkfinite is a local-first infinite canvas for drawing, wireframing, and diagramming. It runs in the browser and as a native desktop app (built with Tauri), sharing the same editor, document model, and tool set across both surfaces. A Rust document engine backs every operation — from freehand strokes to graph layout — and the same engine powers a command-line interface and an MCP server for scripted and agent-driven workflows.
+
+## What You Can Make
+
+Inkfinite gives you a full toolkit for visual work: rectangles, ellipses, lines, arrows, text, Markdown blocks, cards, freehand strokes, and native vector paths. You can organize content across pages and layers, group shapes into frames and containers, and draw from a built-in stencil library.
+
+Beyond basic drawing, Inkfinite supports graph layout (flow, tree, and radial algorithms), native vector path editing with Bézier anchor handles, and structured diagramming roles for semantic queries. Import pipelines accept static SVG, Excalidraw, Obsidian Canvas, Mermaid, and D2 sources. Exports include SVG, PNG, Excalidraw, and Obsidian Canvas files.
+
+## Where Documents Live
+
+<CardGroup cols={2}>
+  <Card title="Browser (IndexedDB)" icon="browser">
+    The web editor stores boards in the current browser's IndexedDB database. Boards are tied to the browser profile and origin — a different browser, profile, or private window has a separate database. Export important work before clearing site data.
+  </Card>
+  <Card title="Desktop (.inkfinite files)" icon="desktop">
+    The desktop app works with local `.inkfinite` files. New boards start as drafts in the app's local data directory; choose **Save As** to create a named file. Writers use a lock, recovery data, and atomic file replacement to avoid partial saves.
+  </Card>
+</CardGroup>
+
+An `.inkfinite` file stores the document canvas **and** its full Automerge change history — not just a snapshot. That history is what the CLI reads, what the MCP server queries, and what makes the file safe to merge, inspect, and version.
+
+<Note>
+  Clearing browser site data, switching profiles, or using private browsing can make IndexedDB boards unavailable. Use the desktop app when you need a native file you can copy, version, or inspect with the CLI.
+</Note>
+
+## Four Ways to Work
+
+Inkfinite meets you wherever you are — browser, desktop, terminal, or an AI coding agent.
+
+<CardGroup cols={2}>
+  <Card title="Web Editor" icon="globe" href="/platforms/web">
+    Open the canvas in any modern browser. No install required. Boards save automatically to IndexedDB. Best for quick sketches, team demos, and work on shared or managed machines.
+  </Card>
+  <Card title="Desktop App" icon="desktop" href="/platforms/desktop">
+    The native Tauri app unlocks local `.inkfinite` files, desktop menus, file locks, and live CLI sessions against the open document. Available for macOS, Windows, and Linux.
+  </Card>
+  <Card title="CLI (inkfinite)" icon="terminal" href="/automation/cli">
+    Inspect, query, edit, validate, and render documents from a script or CI pipeline. Install from a GitHub Releases archive or from crates.io with `cargo install inkfinite-cli --locked --bin inkfinite`.
+  </Card>
+  <Card title="Agent Workflows (MCP)" icon="robot" href="/automation/agents">
+    The `inkfinite-mcp` server exposes tools for listing sessions, querying records, previewing or applying mutations, importing SVG, and submitting proposals to an open desktop session for human review.
+  </Card>
+</CardGroup>
+
+## The Document Model at a Glance
+
+Every Inkfinite document contains one or more pages. Each page holds an ordered tree of layers and shapes, plus bindings that connect related shapes without making either a child of the other. Stable IDs identify every record, so the CLI and MCP server can target a specific shape by role, name, tag, or exact ID — not by its screen position.
+
+Shapes carry kind-specific properties alongside shared metadata: name, role, description, tags, source, link, and custom key-value pairs. That metadata is what makes `inkfinite query --role architecture.service` or `inkfinite_query` through MCP precise and reliable.
+
+<Info>
+  The document engine is written in Rust and compiled to WebAssembly for the browser. The same compiled library runs inside the desktop app, the CLI, and the MCP server — there is no separate "web format" or "desktop format."
+</Info>
+
+## Where to Go Next
+
+<CardGroup cols={2}>
+  <Card title="Quickstart" icon="rocket" href="/quickstart">
+    Create a board, add shapes, connect them with arrows, arrange with layout, and export — in five minutes or less.
+  </Card>
+  <Card title="Editor Guide" icon="pen-nib" href="/guide/editor">
+    Learn canvas navigation, tools, appearance controls, the Layers panel, and keyboard-focus behaviour in depth.
+  </Card>
+  <Card title="Document Model" icon="sitemap" href="/concepts/document-model">
+    Understand pages, layers, shapes, bindings, locks, and how persistence differs between the web and desktop.
+  </Card>
+  <Card title="CLI Reference" icon="terminal" href="/automation/cli">
+    See every command — inspect, query, shape, connect, layout, apply, render, and app — with flags and JSON output.
+  </Card>
+</CardGroup>

@@ -1,0 +1,73 @@
+---
+title: "Working with Objects, Frames, Layers, and Stencils"
+sidebarTitle: "Objects"
+description: "Understand drawing primitives, rich content objects, frame and group containers, the layers panel, per-object metadata fields, and the stencil library."
+---
+
+Inkfinite combines drawing primitives with structured canvas objects. Every object carries a stable ID, a transform, kind-specific properties, and an optional set of metadata fields. Understanding how these pieces fit together makes it easier to build organized, queryable boards.
+
+## Drawing Objects
+
+The shape tools create rectangles, ellipses, frames, lines, arrows, text blocks, Markdown blocks, and freehand strokes. Each of these is a first-class canvas object with its own fill, stroke, opacity, and transform.
+
+**Images** land on the canvas as native assets. After placing an image you can crop it, add a caption, apply a display mask, adjust opacity, replace the source file, or sample a color from it.
+
+**URL, file, and page-reference objects** let you embed external or internal links as visible, editable canvas content. The reference target is stored as editable text, not as a locked label.
+
+**The Card stencil** creates a frame that contains two ordinary child objects: a title text block and a body Markdown block. Selecting the card shows controls for both. Cards are the fastest way to create a named, structured node on a board.
+
+## Frames and Groups
+
+Both frames and groups contain ordered child objects. Moving or transforming a container moves all of its children together.
+
+<Tabs>
+  <Tab title="Frames">
+    A frame defines a visible canvas region with a background and a boundary. Frames can be fitted to the viewport, used as export regions, and given names that appear as labels. The child order within a frame controls drawing order, which SVG export also respects.
+  </Tab>
+  <Tab title="Groups">
+    A group collects objects for joint selection and transformation without adding a visible boundary or background. Groups are lightweight containers — they have no fill or stroke of their own.
+  </Tab>
+</Tabs>
+
+Double-click any nested object to enter its container and select the child directly. Press **Escape** to return to the parent. You can nest frames inside groups and groups inside frames to arbitrary depth.
+
+## Layers Panel
+
+Each page contains one or more layers, listed in the Layers panel. Layers are drawn in order from bottom to top.
+
+From the Layers panel you can:
+
+- **Create** a new layer and give it a name
+- **Activate** a layer so new shapes are placed on it
+- **Rename** any layer by double-clicking its name
+- **Reorder** layers by dragging
+- **Hide or show** a layer without deleting it
+- **Lock** a layer to prevent edits from any source, including CLI transactions
+- **Adjust opacity** for all objects on a layer at once
+
+A shape-level lock set via the object's metadata also prevents edits regardless of which layer it lives on.
+
+## Metadata and Stencils
+
+Every object in Inkfinite — shapes, images, arrows, frames, groups — carries a set of optional metadata fields you can edit from the **object metadata controls**.
+
+<Note>
+  The following metadata fields are available on every shape: **name**, **role**, **tags**, **description**, **source**, **link**, and a free-form **structured metadata** block. A single selected object also shows read-only provenance: **actor**, **origin**, **timestamp**, and **source record**. These fields let people and CLI queries find objects by meaning rather than canvas coordinates.
+</Note>
+
+Metadata makes boards machine-readable. The `inkfinite query` CLI command can filter objects by role, tag, or any metadata value — so a diagram of a system architecture can also serve as a queryable inventory of its components.
+
+### Stencils
+
+Open **Insert** to browse the stencil library. A stencil is a reusable template that creates one object or a structured set of objects in a single action.
+
+<CardGroup cols={2}>
+  <Card title="Single-object stencils" icon="shapes">
+    Create a styled primitive — a rounded rectangle, a data-store ellipse, a decision diamond — already configured with the right fill, stroke, and dimensions.
+  </Card>
+  <Card title="Multi-object stencils" icon="object-group">
+    Create a structured set of related objects, like a Card frame with title and body children, or a swim-lane frame with labelled columns.
+  </Card>
+</CardGroup>
+
+Stencil-created objects are ordinary Inkfinite objects after creation. You can edit their geometry, appearance, and metadata just like any other object.

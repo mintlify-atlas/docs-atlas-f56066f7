@@ -1,0 +1,78 @@
+---
+title: "Navigating and Using the Inkfinite Canvas Editor"
+sidebarTitle: "Editor"
+description: "Learn canvas navigation, toolbar tools, selection modifiers, appearance controls, keyboard focus behavior, and how the editor handles errors and recovery."
+---
+
+The web and desktop apps share the same canvas, tools, shortcuts, and document operations. Everything you learn about the editor in one context applies to both — the desktop app simply adds native file handling and local CLI access on top of the same interface.
+
+## Canvas Navigation
+
+Pan the canvas using a trackpad two-finger swipe, middle-button drag, or by holding **Space** and dragging with the primary mouse button. To zoom, pinch on a trackpad or hold **Ctrl/Cmd** while scrolling. The controls in the lower-left corner let you set an exact zoom percentage, fit the whole drawing into view, or zoom to fit the current selection.
+
+| Shortcut | Action |
+|---|---|
+| `Shift+1` | Fit drawing to viewport |
+| `Shift+2` | Fit current selection to viewport |
+| `Space` + drag | Pan canvas |
+| `Ctrl/Cmd` + scroll | Zoom in or out |
+
+The status bar at the bottom of the canvas reports the active tool, cursor and viewport coordinates, selection state, save status, and grid settings. Grid visibility, cell size, and snapping preferences all persist between sessions.
+
+<Tip>
+  Press **?** at any time to open the keyboard shortcut reference panel. It lists every shortcut available in the current tool context.
+</Tip>
+
+## Tools and the Toolbar
+
+The toolbar gives you access to **Select**, **Direct Select**, shape tools (rectangle, ellipse, frame, line, arrow), **Text**, **Markdown**, and the **Pen** tool. Select operates on complete objects — their bounds, fill, stroke, and transform. Direct Select works at the sub-object level, editing individual anchors and Bézier handles on native paths.
+
+<Steps>
+  <Step title="Pick a shape tool">
+    Click a shape icon in the toolbar, or press its keyboard shortcut (for example, **R** for rectangle or **O** for ellipse).
+  </Step>
+  <Step title="Draw on the canvas">
+    Click and drag to place the shape. Hold **Shift** while drawing to constrain proportions or angles to 15-degree increments.
+  </Step>
+  <Step title="Switch back to Select">
+    Press **V** or **Escape** to return to the Select tool and work with the object you just created.
+  </Step>
+</Steps>
+
+## Selection Behavior
+
+Clicking an object with the Select tool selects it. Drag a selection to move it. The following modifier keys change how selection and transformation work:
+
+<Accordion title="Shift — constrain and extend">
+  Hold **Shift** while dragging a selection to constrain movement to horizontal, vertical, or 45-degree angles. Hold **Shift** while clicking to add an object to or remove it from the current selection. During resize, **Shift** preserves the aspect ratio.
+</Accordion>
+
+<Accordion title="Alt/Option — duplicate and resize from center">
+  Hold **Alt/Option** while dragging a selection to duplicate it in place and immediately move the copy. During resize, **Alt/Option** resizes the shape around its center point rather than from the opposite edge.
+</Accordion>
+
+<Accordion title="Double-click — enter a group or frame">
+  Double-click a nested object to enter its parent group or frame and select the child directly. Press **Escape** to step back out to the parent container.
+</Accordion>
+
+Right-clicking the canvas or a selected object opens a context menu with commands that apply to that location or selection.
+
+## Appearance Controls
+
+Selecting an object reveals its appearance controls: **fill**, **stroke**, and **opacity**. Text, Markdown, and Card selections also show font family and size controls. Arrow selections expose routing style, bend points, endpoint head types, and label text.
+
+The **command palette** (open it from the toolbar or via its shortcut) searches available commands across the selection and viewport, making it fast to apply any action without reaching for a menu.
+
+The **Layers panel** controls layer order, visibility, locks, object names, and layer opacity. See [Objects and Structure](/guide/objects-and-structure) for a full description of frames, groups, cards, and metadata.
+
+## Menus and Keyboard Focus
+
+All toolbar controls, menus, and popovers expose clear visual states: hover, pressed, selected, disabled, busy, and keyboard focus. Menus and popovers that open near the edge of the viewport reposition themselves to stay fully visible.
+
+Press **Escape** or click outside a menu to close it. Keyboard focus automatically returns to the control that opened the menu, so you can continue navigating without reaching for the mouse.
+
+## Errors and Recovery
+
+The editor surfaces failed saves, imports, exports, and clipboard operations directly in the interface — no silent failures. If an operation fails, a message appears explaining what went wrong and, where possible, suggesting a next step.
+
+On the desktop app, a new board starts as an unsaved **draft** stored in the app's local data directory. That draft remains separate from any named `.inkfinite` file until you explicitly choose **File → Save As**. Once saved, **File → Save** writes subsequent changes to that named file. The draft and the named file are never silently merged.

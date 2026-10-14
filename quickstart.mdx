@@ -1,47 +1,135 @@
 ---
-title: "Quickstart"
-description: "Begin with a guide on the fastest path to a successful outcome"
+title: "Get Started with Inkfinite in Your Browser or Desktop"
+sidebarTitle: "Quickstart"
+description: "Create your first board, place shapes, draw connecting arrows, apply automatic layout, navigate the canvas, then save or export — all in a few minutes."
 ---
 
-Describe how someone begins using your product. What is the first thing they need to do? Are there any prerequisites?
-
-A quickstart should take someone from zero to using your product. They'll get a quick win and a sense of what they can accomplish.
-
-## Prerequisites
-
-Before you begin, you must have:
-
-- Requirement one (for example, Node.js 18+, a free account, an API key)
-- Requirement two (for example, a compatible device, a compatible browser, a compatible operating system)
-
-## Get started
+Inkfinite runs entirely in your browser at the web editor, or as a native desktop app for macOS, Windows, and Linux. Both surfaces share the same canvas, tools, and shortcuts, so everything you learn here applies to both. Open the web editor to start immediately with no installation, or launch the desktop app when you want a local `.inkfinite` file you can copy and version.
 
 <Steps>
-  <Step title="Install">
-    Describe how to install your product or sign up.
 
-    ```bash
-    npm install your-package
-    ```
-  </Step>
-  <Step title="Configure">
-    Describe any setup or configuration needed before first use.
+  <Step title="Open the board browser and create a new board">
+    Press **Cmd/Ctrl+B** to open the board browser, then choose **New board**. Give it a name and press Enter.
 
-    ```bash
-    your-cli init
-    ```
-  </Step>
-  <Step title="Run it">
-    Show the first thing a user does to see it working.
+    In the **web editor**, the new board is stored immediately in your browser's IndexedDB database for the current profile and origin. In the **desktop app**, the board opens as a draft in the app's local data directory — no file is written to disk yet.
 
-    ```bash
-    your-cli start
-    ```
+    <Tip>
+      The board browser also lets you search, sort, duplicate, rename, and delete boards. It shows each board's storage location, save state, and last-updated time.
+    </Tip>
   </Step>
+
+  <Step title="Place shapes on the canvas">
+    Select a shape tool from the toolbar — Rectangle, Ellipse, or another shape — then drag on the canvas to place it. Release to finish.
+
+    Add a **text label** or a **Markdown block** with their respective toolbar tools. To move a shape after placing it, switch to the **Select** tool and drag it. To resize, drag any corner or edge handle.
+
+    <Tabs>
+      <Tab title="Modifier keys">
+        | Action | Key |
+        | --- | --- |
+        | Constrain movement or drawing to 15° angles | Hold **Shift** while dragging |
+        | Duplicate while moving | Hold **Alt/Option** while dragging |
+        | Resize while preserving aspect ratio | Hold **Shift** while resizing |
+        | Resize around the center | Hold **Alt/Option** while resizing |
+      </Tab>
+      <Tab title="Groups and frames">
+        Double-click a nested object to enter its group or frame. Press **Escape** to return to its parent. Right-click the canvas or a selection to see contextual commands.
+      </Tab>
+    </Tabs>
+  </Step>
+
+  <Step title="Connect shapes with arrows">
+    Select the **Arrow** tool from the toolbar, then drag from one shape to another. Drop each endpoint directly on a shape to bind it.
+
+    Once bound, the arrow follows its connected shapes whenever you move them — you never need to re-draw the connection. Drag the midpoint of an arrow to add a bend. Use the appearance panel to change endpoint heads, routing style, and inline labels.
+
+    <Note>
+      To create a **semantic relation** without a visible routed arrow (useful for structured diagrams queried by the CLI), use the CLI command `inkfinite connect --kind relation --relation-type TYPE`. Semantic relations appear in `inkfinite query` results but do not participate in arrow routing.
+    </Note>
+  </Step>
+
+  <Step title="Arrange with layout and snapping">
+    Select several shapes, then open **Layout** from the toolbar or right-click menu. Choose from:
+
+    | Layout mode | What it does |
+    | --- | --- |
+    | **Align** | Aligns edges or centers along an axis |
+    | **Distribute** | Spaces objects evenly horizontally or vertically |
+    | **Stack** | Packs objects tightly along an axis with a configurable gap |
+    | **Grid** | Arranges objects in rows and columns |
+    | **Tidy** | Tidies a freeform arrangement with uniform gaps |
+    | **Graph** | Runs flow, tree, or radial auto-layout using arrow bindings as edges |
+
+    While dragging any selection, Inkfinite shows **edge, center, and equal-gap snapping guides** relative to nearby objects, making it easy to align by eye without running a layout command.
+  </Step>
+
+  <Step title="Navigate the canvas">
+    Inkfinite's infinite canvas has no boundaries — pan and zoom freely at any time, even while placing shapes.
+
+    <CardGroup cols={2}>
+      <Card title="Pan" icon="arrows-up-down-left-right">
+        Drag with two fingers on a trackpad, hold the middle mouse button and drag, or hold **Space** and drag with the primary button.
+      </Card>
+      <Card title="Zoom" icon="magnifying-glass-plus">
+        Pinch on a trackpad, or hold **Ctrl/Cmd** while scrolling the mouse wheel.
+      </Card>
+      <Card title="Fit drawing" icon="expand">
+        Press **Shift+1** to fit the entire drawing in the viewport.
+      </Card>
+      <Card title="Fit selection" icon="compress">
+        Press **Shift+2** to zoom to the current selection.
+      </Card>
+    </CardGroup>
+
+    The **lower-left controls** let you set an exact zoom level or trigger fit-drawing and fit-selection from the UI. The **status bar** across the bottom reports the active tool, cursor coordinates, viewport position, selection state, and save status.
+
+    <Tip>
+      Press **?** at any time to open the searchable keyboard shortcut list. Press **Cmd/Ctrl+B** to return to the board browser without leaving the canvas.
+    </Tip>
+  </Step>
+
+  <Step title="Save and export your board">
+    **Browser boards** save automatically to IndexedDB as you work — there is nothing to press.
+
+    **Desktop boards** start as drafts. Choose **Save As** from the application menu (or the equivalent desktop shortcut) to write a named `.inkfinite` file to your chosen location. After that, **Save** writes subsequent changes to the same file. The file stores the full Automerge change history, not just a snapshot.
+
+    <Tabs>
+      <Tab title="Export formats">
+        Use **Export** (from the File menu or the canvas toolbar) to produce a shareable or embeddable file:
+
+        | Format | Use case |
+        | --- | --- |
+        | **SVG** | Scalable vector for web, docs, and print |
+        | **PNG** | Raster image for screenshots and presentations |
+        | **Excalidraw** | Round-trip exchange with Excalidraw |
+        | **Obsidian Canvas** | Embed in an Obsidian vault |
+      </Tab>
+      <Tab title="CLI rendering">
+        With the `inkfinite` CLI, render any saved file to SVG or PNG without opening the editor:
+
+        ```sh
+        inkfinite render my-diagram.inkfinite --output my-diagram.svg
+        inkfinite render my-diagram.inkfinite --output my-diagram.png
+        ```
+
+        Add `--region x,y,width,height` for a precise world-space crop.
+      </Tab>
+    </Tabs>
+
+    <Warning>
+      Browser boards are tied to the current browser profile and origin. Clearing site data or switching to a different browser or private window can make them unavailable. Export important browser work to SVG or Excalidraw, or use the desktop app to save a `.inkfinite` file you control.
+    </Warning>
+  </Step>
+
 </Steps>
 
-<Tip>
-  Give people a way to get help. This could be a link to a support page, a chat with a customer support agent, or a forum for your product.
+## What to Explore Next
 
-  Example: Need help? Reach out to us at [support@yourcompany.com](mailto:support@yourcompany.com).
-</Tip>
+<CardGroup cols={2}>
+  <Card title="Editor Guide" icon="pen-nib" href="/guide/editor">
+    Go deeper on canvas navigation, the Direct Select tool for vector path editing, appearance controls, the Layers panel, and the command palette.
+  </Card>
+  <Card title="Boards and Files" icon="folder-open" href="/guide/boards-and-files">
+    Learn how the board browser works, how desktop drafts become named files, workspace directories, and what to do when recovery data is available.
+  </Card>
+</CardGroup>

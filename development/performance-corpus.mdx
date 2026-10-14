@@ -1,0 +1,120 @@
+---
+title: "Performance Corpus and Profiling for Inkfinite"
+sidebarTitle: "Performance"
+description: "Inkfinite's four measurement layers — native algorithms, complete processes, renderer traversal, and browser behavior — and how to run each one."
+---
+
+Inkfinite measures performance with a shared, deterministic document corpus. Native benchmarks, process measurements, renderer traversal, and browser workloads all use equivalent documents generated from the same profile, size, and seed. Each result identifies the document shape, scale, operation, runtime, and machine behind the timing so comparisons remain meaningful.
+
+## Corpus design
+
+`fixtures/native/performance/corpus.json` defines a seed and six profiles. Each profile is available at 100, 1,000, 5,000, and 10,000 shapes:
+
+| Profile                    | Primary workload                                          |
+| -------------------------- | --------------------------------------------------------- |
+| `flat`                     | Root-level shapes and general document overhead           |
+| `vector-heavy`             | Native paths and geometry traversal                       |
+| `deeply-nested`            | Containers, transforms, and hierarchical selection        |
+| `imported-svg`             | Native path records produced by the SVG import path       |
+| `connection-heavy`         | Arrows and endpoint bindings                              |
+| `semantic-binding-heavy`   | Metadata, semantic queries, and relationship bindings     |
+
+The manifest is checked in instead of thousands of generated documents. Rust and TypeScript materialize equivalent fixtures from the profile, size, and seed. A fixture change is therefore reviewable, and every measurement still uses the current document model.
+
+<Note>
+  Add a profile only when an existing structure cannot expose the cost under investigation. Keep seeds stable when comparing results. Record a new baseline when fixture semantics change.
+</Note>
+
+## Measurement layers
+
+No single harness measures all of application performance. Inkfinite uses four measurement layers:
+
+<CardGroup cols={2}>
+  <Card title="1. Native algorithms" icon="gauge-high">
+    Criterion benchmarks measure document load and save, materialization, validation, transactions, undo/redo, merge, queries, layout, SVG import and rendering, and scene rendering.
+  </Card>
+  <Card title="2. Complete processes" icon="terminal">
+    Hyperfine measures CLI startup and full `inspect`, `query`, `validate`, `render`, and mutation commands, plus MCP startup.
+  </Card>
+  <Card title="3. Renderer traversal" icon="eye">
+    A Node harness runs the production editor renderer against a no-op Canvas context. It isolates scene traversal, culling, geometry dispatch, and renderer cache work — without measuring pixels.
+  </Card>
+  <Card title="4. Browser behavior" icon="globe">
+    Playwright and the Chrome DevTools Protocol drive the production web editor and collect frame, paint, raster, compositor, long-task, garbage-collection, heap, JS-to-WASM, and projection timings.
+  </Card>
+</CardGroup>
+
+The browser workloads cover load, pan, zoom, box selection, object dragging, vector editing, connected-shape movement, and nested selection. A separate 10,000-shape workload measures heap retention after sustained editing and active document replacement.
+
+## Running measurements
+
+The private `@inkfinite/perf` package provides the TypeScript CLI. Run these commands from the repository root. Each root command builds the packages it needs before starting the measurement:
+
+```sh
+# Measure renderer traversal across the shared corpus
+pnpm performance:capture
+
+# Measure complete CLI and MCP timings for the flat 1,000-shape fixture
+pnpm performance:process
+
+# Measure representative browser interactions for the flat 1,000-shape fixture
+pnpm performance:browser
+
+# Run the slower 10,000-shape browser memory workload
+pnpm performance:browser -- --memory
+
+# Record one focused native CPU profile
+pnpm performance:profile -- --filter 'transactions/commit/semantic-binding-heavy/100$'
+```
+
+After running `pnpm perf:build`, use `node packages/perf/dist/cli.mjs <command> --help` to inspect filters and expansion options.
+
+<Accordion title="Filter and expansion options">
+  Process and browser measurements use the flat 1,000-shape fixture by default. Use `--all-sizes` or `--all-profiles` only for a baseline refresh or a scale-specific investigation.
+
+  Browser heap retention is opt-in with `--memory` because its 10,000-shape edit sequence is much slower than the interaction baseline. The sequence waits for each edit's WebAssembly operation and rendered frames before starting the next edit. Document replacement can take up to two minutes at this size.
+
+  When running one Criterion benchmark with Samply, end exact Criterion filters with `$`. Without it, a filter ending in `/1000` also matches `/10000`. A profile that mixes unrelated operations is difficult to attribute and takes longer without producing better evidence.
+</Accordion>
+
+## Reading results
+
+Compact summaries are stored under `fixtures/native/performance/`. Browser captures retain one gzipped Chrome trace for the first measured sample of each workload. The summaries record:
+
+- Fixture inputs
+- Warmup and sample counts
+- Tool versions
+- Hardware details
+- Each measured timing alongside a machine-specific regression ceiling 20% above the selected baseline statistic
+
+Refresh the regression ceiling when the fixture, machine, or measurement method changes.
+
+<Warning>
+  Compare results only when the fixture, operation, build profile, and hardware are compatible. Do not use a renderer-traversal result as a browser frame budget — the no-op Canvas harness excludes rasterization, text shaping, paint, compositing, GPU work, and browser garbage collection. An algorithm benchmark also excludes CLI startup, filesystem access, IPC, and serialization around that algorithm.
+</Warning>
+
+Treat small changes near timer noise as inconclusive. Use browser traces to explain frame and memory behavior, Criterion deltas to identify native hot paths, and Samply to attribute CPU time after a benchmark identifies a regression.
+
+## Findings from August 2026
+
+<Accordion title="Automerge projection caching">
+  Focused load and commit profiles showed repeated materialization of an unchanged Automerge projection. The native adapter now caches the validated projection and clears it after every local or remote change.
+
+  On a reference Apple M1, the flat 10,000-shape Criterion load fell from about 6.75 seconds to about 3.77 seconds. A commit on the same fixture still takes about 3.59 seconds because the current transaction path reconciles the full document.
+</Accordion>
+
+<Accordion title="Browser memory baseline (10,000 shapes)">
+  The first completed 10,000-shape browser memory baseline took 150 seconds for 20 edits. The JavaScript heap was 310 MB above the pre-load reading after those edits, and 286 MB above it after active-document replacement.
+
+  Use this capture to investigate retained editor and WebAssembly state. It is not a memory target.
+</Accordion>
+
+## Setting budgets and optimizing
+
+Set a regression budget only after repeated measurements establish a stable baseline. Record the dominant cost and choose the harness closest to the user-visible behavior. Keep the budget wide enough for expected machine noise but narrow enough to catch a meaningful regression.
+
+Optimize the measured path instead of adding infrastructure speculatively. A connection-heavy traversal regression can justify indexing bindings once per render pass. A slow query may justify an index only after the query benchmark and an end-to-end command measurement identify the same cost. Re-run the focused measurement after the change, then run the representative baseline to check that the optimization did not move work into another layer.
+
+<Tip>
+  See [Testing](/development/testing) for the correctness suite. See [Architecture](/development/architecture) for the codebase units and responsibilities measured by each layer.
+</Tip>

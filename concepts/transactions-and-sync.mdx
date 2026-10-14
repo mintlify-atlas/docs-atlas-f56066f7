@@ -1,0 +1,141 @@
+---
+title: "Transactions and Sync: How Inkfinite Validates and Merges Edits"
+sidebarTitle: "Transactions & Sync"
+description: "Understand Inkfinite's transaction model — preconditions, rejection rules, undo/redo history, proposal review workflow, and Automerge-based peer merging."
+---
+
+Every change you make in Inkfinite — whether you drag a shape, type in a card, or run a CLI command — is recorded as a transaction. Transactions are the unit of validation, history, and review. They keep the document engine honest: an edit either commits cleanly and completely, or it is rejected without touching the canonical file.
+
+## Transaction Structure
+
+A transaction packages a coherent edit into a single, verifiable unit. Each transaction carries:
+
+<CardGroup cols={2}>
+  <Card title="ID" icon="fingerprint">
+    A stable identifier used in history, undo stacks, and proposal panels to refer back to this specific change.
+  </Card>
+  <Card title="Actor" icon="user">
+    The identity that submitted the transaction — a human session, a CLI invocation, or an agent integration.
+  </Card>
+  <Card title="Preconditions" icon="shield-check">
+    Optional assertions about the document state that must hold for the transaction to be accepted — specific causal heads or record versions.
+  </Card>
+  <Card title="Operations" icon="list-check">
+    One or more create, patch, move, or delete operations on named records, applied atomically if all preconditions pass.
+  </Card>
+</CardGroup>
+
+Grouping a coherent edit into one transaction ensures that validation, history, and review are always tied to the user's original intent. There is no way to partially apply a transaction — the document engine evaluates all preconditions and all operations before writing anything.
+
+## Rejection Behaviour
+
+The document engine rejects a transaction — without partially modifying the canonical file — in any of the following situations:
+
+<Accordion title="Stale preconditions">
+  If a transaction includes required document heads or record versions and the document has since moved on, the preconditions no longer hold. The entire transaction is rejected. The actor must inspect the new heads, query the affected records, and rebuild the intended change from current state.
+</Accordion>
+
+<Accordion title="Ambiguous selector">
+  If an operation's target selector matches more than one record — or no records — the engine cannot safely determine the intended target and rejects the transaction.
+</Accordion>
+
+<Accordion title="Lock violation">
+  If any operation in a transaction targets a shape or layer that carries a lock, the entire transaction is rejected regardless of actor identity. Locks are enforced at the document engine level and cannot be bypassed by caller policy.
+</Accordion>
+
+<Accordion title="Invalid record properties">
+  Malformed geometry, missing required references, and invalid property values are caught before the canonical file is written. Recovery uses the same document validation path as a normal save.
+</Accordion>
+
+<Warning>
+  A rejected transaction produces no partial write. The canonical `.inkfinite` file and the in-memory document state are unchanged. Permissioned integrations may apply caller policy (such as checking `agent_editable` flags) before submitting, but that policy does not substitute for engine-level validation.
+</Warning>
+
+## Undo and Redo
+
+The editor records each accepted transaction in its history stack. Undo applies the inverse of the most recent local edit; redo reapplies an edit that was undone. Because history belongs to the document model rather than the editor's UI layer, both the web and desktop editors share the same behaviour.
+
+```
+History stack (newest → oldest)
+  ┌────────────────────────────┐
+  │  txn-004: move shape A     │  ← undo applies inverse of this
+  │  txn-003: patch card title │
+  │  txn-002: create shape B   │
+  │  txn-001: create page      │
+  └────────────────────────────┘
+```
+
+<Info>
+  An edit may become impossible to undo after later changes remove or replace the records it depended on. Inkfinite reports the conflict instead of reconstructing an uncertain result — you will see a notification that the undo step cannot be applied to the current document state.
+</Info>
+
+## Proposal Review
+
+The desktop editor can hold an agent-submitted transaction as a **proposal** rather than committing it immediately. Proposals are validated against the document heads at submission time and held in a pending state until a reviewer acts on them.
+
+<Steps>
+  <Step title="Agent submits a proposal">
+    An agent (via MCP or CLI) submits a transaction against known document heads. The engine validates the transaction and, if it passes, stores it as a proposal without writing it to the canonical file.
+  </Step>
+  <Step title="Preview on canvas">
+    The canvas renders a live diff: added shapes appear highlighted, changed shapes show their updated state, moved shapes display at their new positions, and removed shapes are marked for deletion.
+  </Step>
+  <Step title="Review in the panel">
+    The review panel lists every affected object with its metadata, relationships, and the specific operations the proposal would apply. Reviewers can inspect individual changes before deciding.
+  </Step>
+  <Step title="Accept or reject">
+    Accepting all or part of the proposal commits the selected operations as a new transaction in the document history. Rejecting clears the proposal entirely. Both actions dismiss the canvas preview.
+  </Step>
+  <Step title="Handle stale proposals">
+    If the document is edited while a proposal is pending — by a human or another agent — the proposal's preconditions become stale. The reviewer must refresh the proposal against the current document before acceptance.
+  </Step>
+</Steps>
+
+<Tip>
+  Reviewing the refreshed preview after a document change is important even if the proposal appears to still apply. New document state may affect whether the proposed changes are semantically correct, even when the engine would accept them mechanically.
+</Tip>
+
+## Synchronization
+
+Inkfinite uses **Automerge** as its underlying CRDT history store. Automerge assigns a set of causal hashes — called **heads** — to the current document state. Two peers can each make changes from a shared base and merge them without discarding either peer's history.
+
+```
+Shared base
+    │
+    ├──── Peer A makes changes ──► heads-A
+    │
+    └──── Peer B makes changes ──► heads-B
+                                       │
+                          Merge ───────┘
+                     heads-A + heads-B
+```
+
+The CLI surfaces this model directly. The `inspect` and `query` commands return the document's current heads. When building a transaction, include those heads as preconditions:
+
+```bash
+# Inspect current document heads
+inkfinite inspect document.inkfinite
+
+# Query shapes, capturing the current heads for use as preconditions
+inkfinite query --file document.inkfinite --selector "role:task"
+```
+
+If another actor edits the document between your `query` and your transaction submission, the heads will have advanced and the transaction will be rejected with a stale-precondition error. The correct response is to fetch the new heads, re-query the affected records, and reconstruct the transaction from current state.
+
+<Tabs>
+  <Tab title="Accepted transaction">
+    The document heads match the transaction's preconditions. All operations are applied atomically. New heads are written to the canonical file. The actor receives the updated heads.
+  </Tab>
+  <Tab title="Rejected transaction (stale)">
+    The document has been edited since the preconditions were captured. No operations are applied. The actor receives the current heads and must rebuild the transaction.
+  </Tab>
+  <Tab title="Rejected transaction (lock)">
+    One or more target records are locked. No operations are applied, even those targeting unlocked records. The actor receives the rejection reason and the IDs of the locked records.
+  </Tab>
+</Tabs>
+
+The current local file and desktop proposal workflows provide this concurrency model without requiring a hosted synchronisation service. Live desktop proposals can also become stale while they wait for review — the same rebuild-from-current-state rule applies.
+
+<Note>
+  **Resolving conflicts after a stale rejection:** When a transaction fails because the document has moved on, the correct resolution is to inspect the new heads returned in the rejection, query the records that your transaction intended to affect, and rebuild the change from the current document state. Do not replay the original operations against the new heads without re-reading the affected records — the document may have changed in ways that make the original operations incorrect or ambiguous.
+</Note>

@@ -1,0 +1,72 @@
+---
+title: "Inkfinite Format Compatibility and Round-Trip Behavior"
+sidebarTitle: "Interoperability"
+description: "Format matrix, round-trip fidelity notes, and known conversion limits for Excalidraw, JSON Canvas, Mermaid, D2, SVG, and PNG in Inkfinite."
+---
+
+Inkfinite can exchange documents with several other canvas and diagram tools, but each format comes with a different fidelity contract. Some formats support a full round trip — open in another app, edit, and bring back into Inkfinite without losing structure. Others are one-directional or lose information that only exists in the Inkfinite document model. This page summarizes the compatibility surface for every supported format and explains what is preserved, what is reported as a warning, and what is silently omitted.
+
+## Format Matrix
+
+The table below gives a quick overview of import support, export support, post-import editability, and the most significant known limits for each format.
+
+| Format | Import | Export | Editability | Main limits |
+| --- | --- | --- | --- | --- |
+| `.inkfinite` | Yes | Yes | Native | Use desktop or CLI for files |
+| SVG | Yes | Yes | Supported geometry is native | Unsupported visuals are omitted with warnings |
+| PNG | As an image | Yes | Raster | No individual vector objects |
+| Excalidraw v2 | Yes | Yes | Supported objects are mapped | Rough styles, some shapes, and exact metrics differ |
+| Obsidian / JSON Canvas 1.0 | Yes | Yes | Supported nodes and edges are mapped | File bytes and general drawing shapes need fallbacks |
+| Mermaid flowcharts | Yes | No | Nodes, groups, labels, and arrows | The initial subset uses editable Markdown cards |
+| D2 | Yes | No | Shapes, groups, labels, and arrows | The initial subset omits advanced layout and assets |
+
+## Round-Trip Behavior by Format
+
+### Native `.inkfinite`
+
+A native `.inkfinite` file preserves the full document, causal heads, and Automerge change history. Every save maintains this history, so any replica — desktop, browser, or CLI — can merge divergent edits without data loss. Treat the `.inkfinite` file as the source of truth whenever work will return to Inkfinite after a round trip.
+
+### Excalidraw
+
+Excalidraw conversion handles rectangles, ellipses, lines, arrows, text, freehand strokes, groups, frames, arrow bindings, and arrow labels. Unsupported elements — images, iframes, diamonds, rough fill styles, some arrowhead variants, and exact font metrics — are reported during conversion rather than silently dropped. Inkfinite converts rotation from Excalidraw's center-based origin into its own top-left transform, so rotated supported shapes keep their placement after import.
+
+### JSON Canvas (Obsidian Canvas)
+
+JSON Canvas conversion follows the [JSON Canvas 1.0 specification](https://jsoncanvas.org/spec/1.0/). Text nodes become Markdown cards. File and link nodes become editable file or URL references. Group nodes become Inkfinite frames, preserving label, color, and background path in frame metadata. Edges become bound arrows.
+
+JSON Canvas has no embedded asset store, so Inkfinite image assets export as file nodes and a conversion warning is included in the output. General drawing primitives, freehand strokes, layers, rotation, and free-floating arrows have no JSON Canvas equivalent and are omitted on export with conversion notes.
+
+### Mermaid Flowcharts
+
+[Mermaid flowcharts](https://mermaid.js.org/syntax/flowchart.html) import using the `flowchart` and `graph` forms. The supported subset covers directions, node labels, common arrow forms, subgraphs, `classDef`, `class`, `style`, `linkStyle`, and `click` URLs. Imported nodes become editable Markdown cards, with the original source IDs preserved in shape metadata. Unsupported node shapes fall back to rectangular cards and produce a warning. Unsupported directives are ignored rather than rendered as a format-specific overlay.
+
+<Note>
+  Mermaid export is not part of the current interchange surface. Use `.inkfinite`, `.excalidraw`, or `.canvas` when another editor needs to continue working with individual objects.
+</Note>
+
+### D2
+
+[D2 connections and shapes](https://d2lang.com/tour/connections/) import shape declarations, nested object groups, `label`, `shape`, `link`, common fill and stroke styles, directions, and `--`, `->`, `<-`, and `<->` connections. The importer creates ordinary Inkfinite cards, frames, and bound arrows, then runs the result through the shared flow layout. D2 icons, images, tooltips, classes, scenarios, and advanced layout directives produce warnings and use an omission or rectangular-card fallback.
+
+<Note>
+  D2 export is not part of the current interchange surface.
+</Note>
+
+### SVG
+
+SVG import maps the supported static subset and embedded raster images to native shapes, and retains the original SVG as a source asset alongside the parsed geometry. Unsupported visuals are omitted with warnings rather than silently ignored. SVG export produces vector output for the current page or current selection — individual objects remain in their correct positions and layers.
+
+### PNG
+
+PNG is a presentation export only. It captures the current viewport as a raster image. Imported PNG files become raster image shapes on the canvas; individual vector objects inside the image are not accessible.
+
+## Further Reading
+
+<CardGroup cols={2}>
+  <Card title="Import and Export Guide" icon="arrow-right-arrow-left" href="/guide/import-and-export">
+    Step-by-step editor workflow for importing and exporting every supported format.
+  </Card>
+  <Card title="File Format Reference" icon="file" href="/reference/file-format">
+    Native `.inkfinite` format internals, safe write procedure, versioning, and interchange tables.
+  </Card>
+</CardGroup>

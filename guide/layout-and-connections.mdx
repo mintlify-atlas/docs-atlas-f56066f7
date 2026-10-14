@@ -1,0 +1,75 @@
+---
+title: "Aligning, Distributing, and Connecting Objects on the Canvas"
+sidebarTitle: "Layout"
+description: "Use alignment, distribution, graph layout algorithms, bound arrows with routing and labels, and snapping guides to build well-structured, readable diagrams."
+---
+
+Inkfinite can arrange a selection by pure geometry — aligning edges, evening out spacing — or by the relationships stored between objects, using connected-graph layout algorithms. Both paths produce a tidy result faster than manual positioning.
+
+## Align and Distribute
+
+Select two or more objects and open **Layout** from the menu bar. The alignment commands line up selected objects along a shared edge or axis:
+
+| Command | Effect |
+|---|---|
+| Left, Center, Right | Align to the leftmost, average, or rightmost horizontal position |
+| Top, Middle, Bottom | Align to the topmost, average, or bottommost vertical position |
+| Distribute horizontally | Make horizontal gaps between objects equal |
+| Distribute vertically | Make vertical gaps between objects equal |
+
+Beyond basic alignment, **Tidy** corrects an uneven row or column by snapping objects to the implied grid of their current positions. **Stack** and **Grid** build a fresh regular arrangement from the selected objects:
+
+- **Stack** places objects in a line along a chosen axis with a fixed gap.
+- **Grid** places objects in rows and columns with configurable column count and gap sizes.
+
+The **Order** submenu moves objects forward one step, backward one step, to the front, or to the back within their layer. The same menu groups, ungroups, locks, and unlocks a selection.
+
+## Graph Layout
+
+Tree, flow, and radial layouts automatically arrange objects that are connected by relationship bindings or bound arrows. Graph layout reads the actual stored connections — it does not infer edges from proximity.
+
+<Steps>
+  <Step title="Connect your objects">
+    Draw arrows between objects and drop each endpoint on a shape to create a bound connection. Alternatively, use `connect --kind relation` in the CLI to create a semantic relation binding without an arrow.
+  </Step>
+  <Step title="Select the connected objects">
+    Select all the objects you want the algorithm to reposition. Unselected objects are not moved, and edges to unselected objects are not used as graph edges.
+  </Step>
+  <Step title="Choose a graph layout">
+    Open **Layout** and pick a graph algorithm.
+  </Step>
+</Steps>
+
+<Tabs>
+  <Tab title="Tree">
+    Arranges objects in a strict parent-child hierarchy. Supports horizontal (left-to-right) and vertical (top-to-bottom) directions. Best for org charts, file trees, and class hierarchies.
+  </Tab>
+  <Tab title="Flow">
+    Arranges objects in ranked layers, like a flowchart or dependency graph. Supports horizontal and vertical directions. Best for pipelines, workflows, and systems with clear data flow.
+  </Tab>
+  <Tab title="Radial">
+    Places connected objects in concentric rings around a central node. Best for network diagrams and relationships that don't have a clear top-down direction.
+  </Tab>
+</Tabs>
+
+## Arrow Bindings
+
+Create an arrow with the arrow tool and drop either endpoint on a shape to **bind** it. A bound endpoint follows the shape when it moves or resizes — the arrow stretches automatically. A free endpoint stays at its canvas position until you drag it onto a shape.
+
+Use the arrow's selection controls to change:
+
+- **Routing** — straight line, smooth curve, or right-angle elbow
+- **Bend points** — drag to add curvature along a curved or elbow route
+- **Endpoint heads** — arrow, circle, diamond, none, and more
+- **Labels** — add text along the arrow body, at either endpoint, or at the midpoint
+- **Relationship metadata** — type, direction, and description used by graph layout and CLI queries
+
+## Snapping Guides
+
+When you move or resize a selection, Inkfinite draws temporary guide lines for each active snap. Snapping can align edges, centers, corners, and handles to nearby objects, and it can also equalize gaps between three or more objects.
+
+Change snapping and grid settings from the status bar at the bottom of the canvas. Both snapping and grid preferences persist between sessions.
+
+<Note>
+  Every layout command available in the editor also has a CLI equivalent via `inkfinite layout`. The supported subcommands are `align`, `distribute`, `stack`, `grid`, `tidy`, and `graph`. Select shapes with repeated `--shape` flags or a single `--role` selector. The `graph` subcommand accepts `--algorithm flow|tree|radial`, `--direction top-to-bottom|left-to-right`, `--node-gap`, and `--rank-gap`. This makes it straightforward to apply the same layout logic to a file as a build step or from an agent.
+</Note>

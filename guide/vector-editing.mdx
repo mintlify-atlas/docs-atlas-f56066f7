@@ -1,0 +1,131 @@
+---
+title: "Editing Vector Paths, Gradients, Masks, and Text on a Path"
+sidebarTitle: "Vector Editing"
+description: "Use Direct Select to manipulate anchors and Bézier handles, apply gradients, work with clipping masks, add SVG filters, attach text to a path, and edit imported SVG geometry."
+---
+
+Inkfinite stores supported vector geometry as native path shapes. This means paths drawn in the app and paths imported from SVG share the same representation — and both can be edited with the same Direct Select tool and topology commands.
+
+## Direct Select Tool
+
+Choose **Direct Select** from the toolbar (or press **A**) and click a path to enter anchor-editing mode. Inkfinite displays the path's individual anchors as squares and the Bézier control handles as circular endpoints on handle lines.
+
+- **Drag an anchor** to move it and reshape all segments that meet at that point.
+- **Drag a handle** to change the direction and strength of the curved segment it controls.
+- **Whole-object selection** (with the regular Select tool) still controls the path's overall transform, bounds, fill, stroke, and opacity. Switch to Direct Select only when you need to change the geometry inside those bounds.
+
+### Keyboard Shortcuts in Direct Select
+
+| Key | Action |
+|---|---|
+| `Alt`+click segment | Add an anchor at that point |
+| `Delete` | Remove selected anchors |
+| `Q` | Convert incoming segment to quadratic |
+| `C` | Convert incoming segment to cubic |
+| `L` | Convert incoming segment to line |
+| `O` | Open selected subpath |
+| `Z` | Close selected subpath |
+| `B` | Break handles of selected cubic anchor |
+| `J` | Join two selected endpoints from separate open subpaths |
+
+## Gradient Fills and Strokes
+
+The Fill and Stroke controls accept solid colors, **linear gradients**, and **radial gradients**. Open the small gradient control beside a color swatch to:
+
+1. Choose a gradient type — linear or radial
+2. Set the spread mode — pad, reflect, or repeat
+3. Add, remove, or reorder gradient stops
+
+Each stop has three properties: a **color**, a **position** from `0` to `1` along the gradient axis, and an **opacity**. You can add as many stops as needed, and you can remove any stop as long as at least two remain.
+
+Gradient definitions are stored in the document and round-trip through save, reopen, SVG import, and SVG export. The canvas renderer uses the same stop data for interactive previews.
+
+## Path Topology Commands
+
+A path may contain more than one subpath and may mix line and Bézier segments. The topology commands let you change a path's structure:
+
+<CardGroup cols={2}>
+  <Card title="Open / Close" icon="circle-nodes">
+    **Close** adds a segment from the final anchor back to the starting anchor. **Open** removes the closing segment, turning the subpath into an open curve.
+  </Card>
+  <Card title="Split" icon="scissors">
+    Creates a new anchor at a point on a segment, dividing it into two segments while preserving the curve's shape.
+  </Card>
+  <Card title="Join" icon="link">
+    Connects two compatible open endpoints from separate open subpaths into one continuous path.
+  </Card>
+  <Card title="Convert segment" icon="pen-fancy">
+    Change a segment between line, quadratic curve, and cubic curve without moving its endpoints.
+  </Card>
+</CardGroup>
+
+### Native Path JSON Structure
+
+Inkfinite stores path geometry as a JSON object alongside the shape's other properties. Understanding this structure is useful when working with the CLI or MCP interface:
+
+```json
+{
+  "subpaths": [
+    {
+      "segments": [
+        { "type": "move", "to": { "x": 0, "y": 0 } },
+        { "type": "line", "to": { "x": 40, "y": 0 } },
+        {
+          "type": "quadratic",
+          "control": { "x": 50, "y": 10 },
+          "to": { "x": 40, "y": 20 }
+        },
+        {
+          "type": "cubic",
+          "control_1": { "x": 40, "y": 30 },
+          "control_2": { "x": 0, "y": 30 },
+          "to": { "x": 0, "y": 20 }
+        }
+      ],
+      "closed": true
+    }
+  ],
+  "fill_rule": "nonzero"
+}
+```
+
+Every subpath starts with exactly one `move` segment that sets the starting point. Subsequent segments continue from the previous destination. `closed: true` means a closing segment connects the final destination back to the initial `move` point — closure is a property of the subpath, not a separate segment. `fill_rule` is either `"nonzero"` or `"evenodd"`, matching SVG fill-rule semantics.
+
+## Clipping Masks
+
+Select a path and another object, then choose **Use path as clip** from the selection controls. Inkfinite converts the path to local clip geometry and removes the source path from the canvas.
+
+To remove the clip later, select the clipped object and choose **Remove clip**. This restores normal rendering without changing any other properties of the object.
+
+SVG imports also preserve path-based alpha and luminance masks. Their subpaths form a single mask geometry, and the selection controls expose the mask mode so you can inspect or change it after import.
+
+## SVG Filters
+
+The filter controls cover: **blur**, **grayscale**, **drop shadow**, **brightness**, **contrast**, **hue rotation**, **inversion**, **saturation**, **sepia**, and **opacity**. These effects render in the canvas and are preserved in SVG exports — both read from the same stored properties.
+
+<Info>
+  SVG filters and mask forms outside the supported subset are stored as a sanitized static fallback asset with an import warning. They are not silently dropped, so you can inspect the warning and decide how to handle the content.
+</Info>
+
+## Text on a Path
+
+Select one text shape and one path, then choose **Attach text to path** from the selection controls. The text keeps its own content and style; the path remains an ordinary editable shape.
+
+When text is attached to a path you can:
+
+- Change the text **alignment** along the path
+- Set which **side** of the path the text runs on
+- Set the **direction** of travel
+- Drag the handle on the path to change the **text offset**
+
+Choose **Detach text** to restore ordinary text placement. Text-on-path attachments use the path's local distance, so moving or editing the path geometry keeps the text attached automatically.
+
+SVG import and export both support `textPath` references, including supporting paths declared in SVG `<defs>`.
+
+## Imported SVG Paths
+
+During SVG import, supported vector primitives — `<path>`, `<rect>`, `<ellipse>`, `<line>`, `<polyline>`, `<polygon>`, and similar elements — become native Inkfinite geometry. Their anchors and segments can then be edited with Direct Select, exactly like paths you drew in the app.
+
+When Inkfinite cannot represent a visual element in its native model, it reports the issue in the import report and keeps a static fallback for that element. Unsupported content is never silently discarded.
+
+See [Import and Export](/guide/import-and-export) for the full SVG import workflow, and [Native Path Geometry](/development/native-path-geometry) for the complete stored representation and validation rules.
