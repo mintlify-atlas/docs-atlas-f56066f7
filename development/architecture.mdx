@@ -1,12 +1,12 @@
 ---
-title: "Inkfinite Architecture: Rust Engine, TypeScript Editor, and CLI"
+title: "Inkfinite Architecture: Rust Engine, Packages, and CLI"
 sidebarTitle: "Architecture"
 description: "How Inkfinite's Rust document engine, TypeScript editor packages, desktop bridge, Canvas renderer, and CLI fit together across the full codebase."
 ---
 
 Inkfinite has one canonical document model and a separate editor-facing projection. Rust owns the canonical document, transactions, Automerge state, native files, headless rendering, and desktop sessions. TypeScript owns interactive editor state, tools, browser input, and Canvas rendering. The boundary between them is intentional: the editor keeps pointer movement and gesture previews local, while completed edits commit through the same Rust transaction engine used by the CLI.
 
-## System overview
+## Architecture
 
 The following diagram shows how every major component connects across the browser app, desktop frontend, Tauri backend, and CLI:
 
@@ -34,7 +34,7 @@ Tauri backend ── inkfinite-core ── Automerge / .inkfinite
       └── authenticated local IPC ── inkfinite CLI
 ```
 
-The web and desktop applications share the editor UI and interaction packages, but they do not use the same persistence adapter. The web editor persists its document in IndexedDB. The desktop editor projects the Rust-owned native document into editor state and sends completed document edits back through Tauri.
+The web and desktop applications share the editor UI and interaction packages, but they do not use the same persistence adapter. The web editor persists its editor document in IndexedDB. The desktop editor projects the Rust-owned native document into editor state and sends completed document edits back through Tauri.
 
 ## Implemented foundation
 
@@ -62,7 +62,7 @@ Rust owns the canonical document and all operations that can change it. `inkfini
 Its source layout follows the ownership split:
 
 - `src/model/` contains canonical IDs, value types, shape registry types, records, snapshots, and shape-property validation. `lib.rs` re-exports the existing root model names.
-- `src/geometry/` contains boolean operations, connector resolution, graph layout, path topology, path metrics, and routing. The engine's world-transform and bounds helpers remain under `engine::geometry` because the transaction engine owns those document traversals.
+- `src/geometry/` contains boolean operations, connector resolution, graph layout, path topology, path metrics, and routing. Existing root module paths remain available as re-exports; the engine's world-transform and bounds helpers remain under `engine::geometry` because the transaction engine owns those document traversals.
 - `src/editor/` contains editor-facing projection data, canonical-to-editor projection, and editor patch reconciliation. `inkfinite_core::editor` keeps the public editor API while its implementation is split into model, projection, and reconciliation modules.
 - `src/wasm.rs`, the CLI, MCP, and Tauri code are adapters. They call the core APIs and do not define parallel canonical records or transaction semantics.
 

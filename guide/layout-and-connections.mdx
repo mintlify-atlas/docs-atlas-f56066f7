@@ -1,7 +1,7 @@
 ---
 title: "Aligning, Distributing, and Connecting Objects on the Canvas"
 sidebarTitle: "Layout"
-description: "Use alignment, distribution, graph layout algorithms, bound arrows with routing and labels, and snapping guides to build well-structured, readable diagrams."
+description: "Align and distribute selections, apply graph layout algorithms, bind arrows with routing and labels, and use snapping guides for readable diagrams."
 ---
 
 Inkfinite can arrange a selection by pure geometry — aligning edges, evening out spacing — or by the relationships stored between objects, using connected-graph layout algorithms. Both paths produce a tidy result faster than manual positioning.
@@ -71,5 +71,5 @@ When you move or resize a selection, Inkfinite draws temporary guide lines for e
 Change snapping and grid settings from the status bar at the bottom of the canvas. Both snapping and grid preferences persist between sessions.
 
 <Note>
-  Every layout command available in the editor also has a CLI equivalent via `inkfinite layout`. The supported subcommands are `align`, `distribute`, `stack`, `grid`, `tidy`, and `graph`. Select shapes with repeated `--shape` flags or a single `--role` selector. The `graph` subcommand accepts `--algorithm flow|tree|radial`, `--direction top-to-bottom|left-to-right`, `--node-gap`, and `--rank-gap`. This makes it straightforward to apply the same layout logic to a file as a build step or from an agent.
+  Every layout command available in the editor also has a CLI equivalent via `inkfinite layout`. The supported subcommands are `align`, `distribute`, `stack`, `grid`, `tidy`, and `graph`. Select shapes with repeated `--shape` flags or a single `--role` selector. `stack` accepts `--axis` and `--gap`, `grid` accepts `--columns`, `--column-gap`, and `--row-gap`, `tidy` accepts `--gap`, and `graph` accepts `--algorithm flow|tree|radial`, `--direction top-to-bottom|left-to-right`, `--node-gap`, and `--rank-gap`. Graph edges come from selected-to-selected relation bindings or the two endpoints of a selected connector. Proximity and unselected endpoints are ignored.
 </Note>

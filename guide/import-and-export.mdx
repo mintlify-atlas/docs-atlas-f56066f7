@@ -1,7 +1,7 @@
 ---
-title: "Importing and Exporting Boards Between Inkfinite and Other Tools"
+title: "Importing and Exporting Files and Boards in Inkfinite"
 sidebarTitle: "Import & Export"
-description: "Bring external files and clipboard content into Inkfinite, understand which formats stay editable, and export boards as vector, raster, or interchange files."
+description: "Bring external files and clipboard content into Inkfinite, understand which formats stay editable, and export boards as vector or raster files."
 ---
 
 Use import when you want external content to become part of an Inkfinite board. Use export when you want an editable interchange file for another application or a presentation copy in a standard format. These are separate operations — importing does not alter the source, and exporting does not change the current document's native file or save state.
@@ -67,9 +67,8 @@ Native clipboard copy preserves hierarchy, assets, and connections. When copying
 | **Copy document as SVG** | SVG code for the entire current page |
 | **Copy as PNG** | PNG image of the current selection |
 | **Copy document as PNG** | PNG image of the entire current page |
-| **Copy as transparent PNG** | PNG with transparency preserved |
 
-Inkfinite writes both SVG and plain-text clipboard representations when the browser supports rich clipboard data. If it does not, the editor copies the markup as plain text and reports that fallback. If image clipboard writes are unavailable, Inkfinite downloads a PNG file instead.
+Inkfinite writes both SVG and plain-text clipboard representations when the browser supports rich clipboard data. If it does not, the editor copies the markup as plain text and reports that fallback. Transparent PNG actions preserve transparent pixels; if image clipboard writes are unavailable, Inkfinite downloads a PNG file instead.
 
 ## Exporting a Board
 

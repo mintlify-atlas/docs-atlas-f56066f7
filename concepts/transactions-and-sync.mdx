@@ -1,5 +1,5 @@
 ---
-title: "Transactions and Sync: How Inkfinite Validates and Merges Edits"
+title: "Inkfinite Transactions: Validation, History, and Sync"
 sidebarTitle: "Transactions & Sync"
 description: "Understand Inkfinite's transaction model — preconditions, rejection rules, undo/redo history, proposal review workflow, and Automerge-based peer merging."
 ---
@@ -55,7 +55,7 @@ The document engine rejects a transaction — without partially modifying the ca
 
 The editor records each accepted transaction in its history stack. Undo applies the inverse of the most recent local edit; redo reapplies an edit that was undone. Because history belongs to the document model rather than the editor's UI layer, both the web and desktop editors share the same behaviour.
 
-```
+```text
 History stack (newest → oldest)
   ┌────────────────────────────┐
   │  txn-004: move shape A     │  ← undo applies inverse of this
@@ -99,7 +99,7 @@ The desktop editor can hold an agent-submitted transaction as a **proposal** rat
 
 Inkfinite uses **Automerge** as its underlying CRDT history store. Automerge assigns a set of causal hashes — called **heads** — to the current document state. Two peers can each make changes from a shared base and merge them without discarding either peer's history.
 
-```
+```text
 Shared base
     │
     ├──── Peer A makes changes ──► heads-A
@@ -117,7 +117,7 @@ The CLI surfaces this model directly. The `inspect` and `query` commands return 
 inkfinite inspect document.inkfinite
 
 # Query shapes, capturing the current heads for use as preconditions
-inkfinite query --file document.inkfinite --selector "role:task"
+inkfinite query document.inkfinite --role task
 ```
 
 If another actor edits the document between your `query` and your transaction submission, the heads will have advanced and the transaction will be rejected with a stale-precondition error. The correct response is to fetch the new heads, re-query the affected records, and reconstruct the transaction from current state.

@@ -1,7 +1,7 @@
 ---
 title: "Editing Vector Paths, Gradients, Masks, and Text on a Path"
 sidebarTitle: "Vector Editing"
-description: "Use Direct Select to manipulate anchors and Bézier handles, apply gradients, work with clipping masks, add SVG filters, attach text to a path, and edit imported SVG geometry."
+description: "Use Direct Select to manipulate anchors and Bézier handles, apply gradients, work with clipping masks, add SVG filters, and attach text to a path."
 ---
 
 Inkfinite stores supported vector geometry as native path shapes. This means paths drawn in the app and paths imported from SVG share the same representation — and both can be edited with the same Direct Select tool and topology commands.
@@ -90,6 +90,8 @@ Inkfinite stores path geometry as a JSON object alongside the shape's other prop
 ```
 
 Every subpath starts with exactly one `move` segment that sets the starting point. Subsequent segments continue from the previous destination. `closed: true` means a closing segment connects the final destination back to the initial `move` point — closure is a property of the subpath, not a separate segment. `fill_rule` is either `"nonzero"` or `"evenodd"`, matching SVG fill-rule semantics.
+
+The binding generator exports `PathFillRule`, `PathSegment`, `PathSubpath`, and `PathGeometry` to `@inkfinite/bindings`. Its registry also exposes `validatePathGeometry` and applies the same structural checks to serialized values.
 
 ## Clipping Masks
 

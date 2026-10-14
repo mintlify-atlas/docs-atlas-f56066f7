@@ -142,7 +142,7 @@ inkfinite import svg architecture.inkfinite \
 
 Graph edges come from selected-to-selected relation bindings or the two endpoints of a selected connector. Proximity and unselected endpoints are ignored.
 
-Use `connect --kind relation --relation-type TYPE` for a semantic connection that does not participate in arrow routing, then query it by direction or type:
+Use `connect --kind relation --relation-type TYPE` for a semantic connection that does not participate in arrow routing. Query its direction or type with `--outgoing-from`, `--incoming-to`, and `--relation-type`:
 
 ```sh
 inkfinite connect architecture.inkfinite \
